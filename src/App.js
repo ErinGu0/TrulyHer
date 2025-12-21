@@ -4,6 +4,7 @@ import MoodDashboardPage from './pages/MoodDashboardPage';
 import HistoryPage from './pages/HistoryPage';
 import InsightsPage from './pages/InsightsPage';
 import BadgesPage from './pages/BadgesPage';
+import ActionPage from './pages/ActionPage'; // NEW: Import Action Page
 import Layout from './components/layout/Layout';
 import './App.css';
 
@@ -16,6 +17,7 @@ function App() {
       case 'history': return <HistoryPage />;
       case 'insights': return <InsightsPage />;
       case 'badges': return <BadgesPage />;
+      case 'action': return <ActionPage />; // NEW: Action page route
       default: return <JournalPage />;
     }
   };
@@ -26,6 +28,5 @@ function App() {
     </Layout>
   );
 }
-
 
 export default App;

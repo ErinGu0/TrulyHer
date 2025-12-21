@@ -29,52 +29,7 @@ export default function InsightsPage() {
     setIsLoading(false);
   };
 
-  const generateInsights = async () => {
-    if (entries.length === 0) return;
-    
-    setIsGenerating(true);
-    
-    try {
-      // Simulate AI analysis with timeout
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Generate mock insights based on actual entries
-      const recentEntries = entries.slice(0, 10);
-      
-      // Calculate average mood
-      const avgMood = recentEntries.length > 0 
-        ? recentEntries.reduce((sum, e) => sum + (e.mood_score || 5), 0) / recentEntries.length 
-        : 5;
-      
-      // Get most common emotions
-      const emotionCount = {};
-      recentEntries.forEach(entry => {
-        (entry.emotions || []).forEach(emotion => {
-          emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;
-        });
-      });
-      
-      const commonEmotions = Object.entries(emotionCount)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 3)
-        .map(([emotion]) => emotion);
-
-      const mockInsights = {
-        strengths: this.generateStrengths(avgMood, commonEmotions),
-        growth_areas: this.generateGrowthAreas(avgMood, commonEmotions),
-        emotional_patterns: this.generatePatterns(avgMood, commonEmotions),
-        self_care_tips: this.generateSelfCareTips(avgMood),
-        encouraging_message: this.generateEncouragement(avgMood, entries.length)
-      };
-
-      setInsights(mockInsights);
-    } catch (error) {
-      console.error("Error generating insights:", error);
-    }
-    
-    setIsGenerating(false);
-  };
-
+  // Fixed: Moved these functions inside the component and removed 'this.'
   const generateStrengths = (avgMood, emotions) => {
     const strengths = [];
     
@@ -152,6 +107,53 @@ export default function InsightsPage() {
     } else {
       return "Your courage in facing difficult emotions is remarkable. Remember that storms always pass, and you're building incredible resilience.";
     }
+  };
+
+  const generateInsights = async () => {
+    if (entries.length === 0) return;
+    
+    setIsGenerating(true);
+    
+    try {
+      // Simulate AI analysis with timeout
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Generate mock insights based on actual entries
+      const recentEntries = entries.slice(0, 10);
+      
+      // Calculate average mood
+      const avgMood = recentEntries.length > 0 
+        ? recentEntries.reduce((sum, e) => sum + (e.mood_score || 5), 0) / recentEntries.length 
+        : 5;
+      
+      // Get most common emotions
+      const emotionCount = {};
+      recentEntries.forEach(entry => {
+        (entry.emotions || []).forEach(emotion => {
+          emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;
+        });
+      });
+      
+      const commonEmotions = Object.entries(emotionCount)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([emotion]) => emotion);
+
+      // Fixed: Use the functions directly without 'this.'
+      const mockInsights = {
+        strengths: generateStrengths(avgMood, commonEmotions),
+        growth_areas: generateGrowthAreas(avgMood, commonEmotions),
+        emotional_patterns: generatePatterns(avgMood, commonEmotions),
+        self_care_tips: generateSelfCareTips(avgMood),
+        encouraging_message: generateEncouragement(avgMood, entries.length)
+      };
+
+      setInsights(mockInsights);
+    } catch (error) {
+      console.error("Error generating insights:", error);
+    }
+    
+    setIsGenerating(false);
   };
 
   return (

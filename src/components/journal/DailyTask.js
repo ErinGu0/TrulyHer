@@ -9,13 +9,23 @@ export default function DailyTask({ task }) {
 
   if (!task) return null;
 
-  const toggleStep = (step) => {
+  // Handle both object and string tasks
+  const taskData = typeof task === 'string' ? {
+    title: "Daily Wellness Activity",
+    description: task,
+    steps: [task]
+  } : task;
+
+  // Ensure steps exists and is an array
+  const steps = taskData.steps || [taskData.description || "Complete today's activity"];
+
+  const toggleStep = (step, index) => {
     setCompletedSteps(prev => 
-      prev.includes(step) ? prev.filter(s => s !== step) : [...prev, step]
+      prev.includes(index) ? prev.filter(s => s !== index) : [...prev, index]
     );
   };
 
-  const isAllCompleted = task.steps.length > 0 && completedSteps.length === task.steps.length;
+  const isAllCompleted = steps.length > 0 && completedSteps.length === steps.length;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -28,12 +38,12 @@ export default function DailyTask({ task }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="font-semibold text-lg text-gray-800">{task.title}</h3>
-            <p className="text-gray-600 mt-1">{task.description}</p>
+            <h3 className="font-semibold text-lg text-gray-800">{taskData.title}</h3>
+            <p className="text-gray-600 mt-1">{taskData.description}</p>
           </div>
           
           <div className="space-y-3">
-            {task.steps.map((step, index) => (
+            {steps.map((step, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
@@ -41,18 +51,18 @@ export default function DailyTask({ task }) {
                 transition={{ delay: index * 0.1 }}
               >
                 <div
-                  onClick={() => toggleStep(step)}
+                  onClick={() => toggleStep(step, index)}
                   className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 bg-gray-50 hover:bg-purple-50 border border-transparent hover:border-purple-200"
                 >
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                    completedSteps.includes(step) 
+                    completedSteps.includes(index) 
                       ? 'bg-green-500 border-green-500' 
                       : 'border-purple-300'
                   }`}>
-                    {completedSteps.includes(step) && <Check className="w-4 h-4 text-white" />}
+                    {completedSteps.includes(index) && <Check className="w-4 h-4 text-white" />}
                   </div>
                   <span className={`text-gray-700 transition-all ${
-                    completedSteps.includes(step) ? 'line-through text-gray-400' : ''
+                    completedSteps.includes(index) ? 'line-through text-gray-400' : ''
                   }`}>
                     {step}
                   </span>

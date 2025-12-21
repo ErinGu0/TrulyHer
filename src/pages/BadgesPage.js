@@ -1,46 +1,37 @@
 import React, { useState, useEffect } from "react";
 import { journalService } from "../services/journalService";
-import { Card, CardContent, CardHeader } from "../components/ui/Card";
-import { Star, Zap, Calendar, Heart, BookOpen, Trophy, Award } from "lucide-react";
-import { motion } from "framer-motion";
-import { format } from "date-fns";
+import { Award } from "lucide-react";
 
 const allBadges = {
   first_entry: { 
     name: "First Step", 
     description: "You've started your beautiful journey, keep at it!", 
-    icon: Star,
-    color: "from-yellow-400 to-orange-400"
+    icon: '⭐'
   },
   three_day_streak: { 
     name: "Budding Habit", 
     description: "3 days of reflection in a row!", 
-    icon: Zap,
-    color: "from-green-400 to-blue-400"
+    icon: '⚡'
   },
   seven_day_streak: { 
     name: "Consistent Heart", 
     description: "A whole week of self-care!", 
-    icon: Calendar,
-    color: "from-purple-400 to-pink-400"
+    icon: '💗'
   },
   mood_tracker: { 
     name: "Emotional Explorer", 
     description: "Tracked your mood 10 times", 
-    icon: Heart,
-    color: "from-pink-400 to-rose-400"
+    icon: '📖'
   },
   reflective_writer: { 
     name: "Reflective Writer", 
     description: "Wrote 20 journal entries", 
-    icon: BookOpen,
-    color: "from-blue-400 to-cyan-400"
+    icon: '📚'
   },
   journey_master: { 
     name: "Journey Master", 
     description: "Completed 50 entries!", 
-    icon: Trophy,
-    color: "from-orange-400 to-red-400"
+    icon: '🏆'
   },
 };
 
@@ -54,7 +45,6 @@ export default function BadgesPage() {
         const currentUser = await journalService.getUser();
         setUser(currentUser);
         
-        // Auto-award badges based on journal entries
         await checkAndAwardBadges(currentUser);
       } catch (e) {
         console.error("Failed to fetch user");
@@ -69,7 +59,6 @@ export default function BadgesPage() {
     const entries = await journalService.getEntries();
     const newBadges = [];
     
-    // Check for first entry badge
     if (entries.length > 0 && !currentUser.badges?.some(b => b.id === 'first_entry')) {
       newBadges.push({
         id: 'first_entry',
@@ -77,7 +66,6 @@ export default function BadgesPage() {
       });
     }
     
-    // Check for mood tracker badge
     if (entries.length >= 10 && !currentUser.badges?.some(b => b.id === 'mood_tracker')) {
       newBadges.push({
         id: 'mood_tracker',
@@ -85,7 +73,6 @@ export default function BadgesPage() {
       });
     }
     
-    // Check for reflective writer badge
     if (entries.length >= 20 && !currentUser.badges?.some(b => b.id === 'reflective_writer')) {
       newBadges.push({
         id: 'reflective_writer',
@@ -93,7 +80,6 @@ export default function BadgesPage() {
       });
     }
     
-    // Check for journey master badge
     if (entries.length >= 50 && !currentUser.badges?.some(b => b.id === 'journey_master')) {
       newBadges.push({
         id: 'journey_master',
@@ -109,9 +95,6 @@ export default function BadgesPage() {
     }
   };
 
-  const earnedBadges = user?.badges || [];
-  const earnedBadgeIds = earnedBadges.map(b => b.id);
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
@@ -120,72 +103,92 @@ export default function BadgesPage() {
     );
   }
 
+  const earnedBadges = user?.badges || [];
+  const earnedBadgeIds = earnedBadges.map(b => b.id);
+
+  const badges = Object.entries(allBadges).map(([id, badge]) => ({
+    id,
+    ...badge,
+    earned: earnedBadgeIds.includes(id),
+    earnedDate: earnedBadges.find(b => b.id === id)?.date_earned
+  }));
+
+  const earnedBadgesList = badges.filter(b => b.earned);
+  const lockedBadges = badges.filter(b => !b.earned);
+
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-3">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
-            <Award className="w-8 h-8 text-white" />
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-orange-600 bg-clip-text text-transparent">
-          Your Accomplishments
-        </h1>
-        <p className="text-gray-600">
-          Celebrating every step of your beautiful journey 💖
-        </p>
-        
-        <div className="bg-gradient-to-r from-pink-50 to-orange-50 p-4 rounded-xl border border-pink-200">
-          <p className="text-sm text-gray-700">
-            <strong>{earnedBadges.length} of {Object.keys(allBadges).length} badges earned</strong>
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Keep journaling to unlock more achievements!</p>
-        </div>
+    <div>
+      {/* TEST - Remove this after checking if it's red */}
+      <div className="bg-red-500 p-8 text-white font-bold text-center mb-4">
+        TEST - If this is red, Tailwind works!
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Object.entries(allBadges).map(([id, badge], index) => {
-          const earned = earnedBadgeIds.includes(id);
-          const earnedInfo = earned ? earnedBadges.find(b => b.id === id) : null;
-          const Icon = badge.icon;
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center mb-3">
+            <Award className="w-8 h-8 text-gray-700" />
+          </div>
+          <h1 className="text-gray-800 mb-2">Your Accomplishments</h1>
+          <p className="text-gray-600">Celebrating every step of your beautiful journey 💗</p>
+        </div>
 
-          return (
-            <motion.div
-              key={id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <Card className={`h-full text-center p-4 transition-all duration-300 border-2 ${
-                earned ? 'border-yellow-300 shadow-lg' : 'border-gray-200'
-              }`}>
-                <CardHeader>
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 transition-all ${
-                    earned ? `bg-gradient-to-br ${badge.color} shadow-md` : 'bg-gray-200'
-                  }`}>
-                    <Icon className={`w-8 h-8 ${earned ? 'text-white' : 'text-gray-400'}`} />
+        {/* Stats */}
+        <div className="bg-white/70 backdrop-blur-md rounded-3xl p-8 border border-white/60 shadow-lg text-center">
+          <div className="text-5xl mb-3">🎖️</div>
+          <h2 className="text-gray-800 mb-2">{earnedBadgesList.length} of {badges.length} badges earned</h2>
+          <p className="text-gray-600">Keep journaling to unlock more achievements!</p>
+        </div>
+
+        {/* Earned Badges */}
+        <div>
+          <h3 className="text-gray-800 mb-6">✨ Earned Badges</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {earnedBadgesList.map((badge) => (
+              <div
+                key={badge.id}
+                className="bg-white/70 backdrop-blur-md rounded-3xl p-6 border border-white/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                    <span className="text-3xl">{badge.icon}</span>
                   </div>
-                  <h3 className={`font-bold text-lg ${earned ? 'text-gray-800' : 'text-gray-400'}`}>
-                    {badge.name}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <p className={`text-sm mt-1 ${earned ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {badge.description}
-                  </p>
-                  {earned && earnedInfo && (
-                    <p className="text-xs text-yellow-600 font-semibold mt-2">
-                      Earned on {format(new Date(earnedInfo.date_earned), 'MMM d, yyyy')}
-                    </p>
-                  )}
-                  {!earned && (
-                    <p className="text-xs text-gray-400 mt-2">Keep going to unlock!</p>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                  <div className="flex-1">
+                    <h3 className="text-gray-800 mb-1">{badge.name}</h3>
+                    <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
+                    {badge.earnedDate && (
+                      <p className="text-xs text-gray-500">Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Locked Badges */}
+        <div>
+          <h3 className="text-gray-800 mb-6">🔒 Locked Badges</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {lockedBadges.map((badge) => (
+              <div
+                key={badge.id}
+                className="bg-white/50 backdrop-blur-md rounded-3xl p-6 border border-white/50 shadow-lg relative overflow-hidden"
+              >
+                <div className="flex items-start gap-4 opacity-60">
+                  <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                    <span className="text-3xl grayscale">{badge.icon}</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-gray-700 mb-1">{badge.name}</h3>
+                    <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
+                    <p className="text-xs text-gray-500 italic">Keep going to unlock!</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,235 @@
+/**
+ * geminiAnalysisService.js
+ * ULTRA-ENHANCED - Maximum anti-repetition
+ */
+
+const apiKey = process.env.REACT_APP_GEMINI_API_KEY; 
+
+if (!apiKey) {
+    console.error("Gemini API Key is missing. Check your environment variables (REACT_APP_GEMINI_API_KEY).");
+}
+
+const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const MODEL_NAME = "gemini-2.5-flash-preview-09-2025"; 
+const API_URL = `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}`;
+
+const _callGeminiApi = async (userQuery, systemPrompt, responseSchema = null) => {
+    const maxRetries = 5;
+    let attempt = 0;
+
+    const payload = {
+        contents: [
+            {
+                parts: [
+                    { text: `${systemPrompt}\n\n${userQuery}` }
+                ]
+            }
+        ]
+    };
+
+    if (responseSchema) {
+        payload.generationConfig = {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema
+        };
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+
+    while (attempt < maxRetries) {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.status === 400) {
+                const errorData = await response.json();
+                console.error("400 Bad Request Error:", errorData);
+                console.error("Payload sent:", payload);
+                throw new Error(`API Error: ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            if (response.status === 429) {
+                throw new Error(`Rate limit exceeded (429)`);
+            }
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                const text = candidate.content.parts[0].text;
+                let sources = [];
+                
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                return { text, sources };
+            } else {
+                throw new Error("Invalid or empty response from Gemini API.");
+            }
+
+        } catch (error) {
+            attempt++;
+            if (attempt >= maxRetries) {
+                console.error("Gemini API call failed after multiple retries:", error);
+                throw new Error("Failed to communicate with the AI service.");
+            }
+            const delay = Math.pow(2, attempt) * 1000;
+            console.warn(`Retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+};
+
+const analyzeJournalEntry = async (entryText, moodScore, recentThemes) => {
+    const systemPrompt = `You are a compassionate personal journal analyst having a direct conversation with the person writing. 
+
+Analyze the journal entry and output ONLY a valid JSON object following this exact structure:
+{
+  "overall_analysis": "string - A compassionate 2-3 sentence summary",
+  "imposter_syndrome_detected": boolean,
+  "imposter_confidence": number (0-1, confidence level of imposter syndrome detection),
+  "urgent_support_needed": boolean,
+  "key_insights": ["array", "of", "key insights"],
+  "recommendations": ["array", "of", "recommendations"]
+}
+
+🚨 CRITICAL ANTI-REPETITION RULES - READ CAREFULLY 🚨
+
+FORBIDDEN PATTERNS - NEVER USE THESE:
+❌ "Before closing your journal tonight..." (DO NOT repeat this phrase)
+❌ Starting multiple recommendations the same way
+❌ Using the same verb more than once ("write", "identify", "reach out", "schedule")
+❌ Similar sentence structures across recommendations
+❌ Generic phrases like "Consider...", "Try to...", "Make sure to..."
+
+MANDATORY VARIETY REQUIREMENTS:
+✓ Each recommendation must use a DIFFERENT action verb
+✓ Each recommendation must have a DIFFERENT sentence structure
+✓ Each recommendation must address a DIFFERENT life area
+✓ Vary lengths: mix short punchy advice with detailed suggestions
+
+DIFFERENT ACTION VERBS TO USE (pick 4 different ones):
+- Physical: Walk, Stretch, Exercise, Dance, Cook, Create
+- Mental: Reflect, Question, Challenge, Reframe, Acknowledge, Notice
+- Social: Text, Call, Share, Ask, Connect, Discuss
+- Practical: Set, Block, Schedule, List, Track, Plan
+- Creative: Draw, Write, Record, Design, Build, Compose
+
+EXAMPLE OF PERFECT VARIETY (no repetition):
+1. "Text your closest friend right now with one genuine accomplishment from today—no minimizing allowed."
+2. "Challenge that inner critic by asking: 'Would I talk to my best friend this way?' then rephrase your self-talk accordingly."
+3. "Block 20 minutes tomorrow morning for a walk outside, focusing only on what you see, hear, and feel."
+4. "Track one mood pattern this week: What time of day do you feel most energized? Build your hardest tasks around that window."
+
+TONE REQUIREMENTS:
+- Write in SECOND PERSON ("you", "your") - NEVER "the user" or "this person"
+- Be direct and specific, not vague or general
+- Include concrete time frames (tonight, tomorrow, this week, right now)
+- Make each recommendation immediately actionable
+
+The person's current mood score is ${moodScore}/10. Be warm, specific, and growth-focused.`;
+    
+    const analysisSchema = {
+        type: "object",
+        properties: {
+            overall_analysis: {
+                type: "string",
+                description: "A compassionate 2-3 sentence summary in second person, addressing the person directly."
+            },
+            imposter_syndrome_detected: {
+                type: "boolean",
+                description: "True if clear signs of Imposter Syndrome are present (self-doubt, attributing success to luck, fear of exposure)."
+            },
+            imposter_confidence: {
+                type: "number",
+                description: "Confidence level (0.0 to 1.0) of imposter syndrome detection."
+            },
+            urgent_support_needed: {
+                type: "boolean",
+                description: "True only for explicit self-harm mentions or immediate crisis."
+            },
+            key_insights: {
+                type: "array",
+                items: {
+                    type: "string"
+                },
+                description: "3-5 distinct observations, each focusing on different aspects. Written in second person. NO REPETITIVE PHRASES."
+            },
+            recommendations: {
+                type: "array",
+                items: {
+                    type: "string"
+                },
+                description: "3-4 COMPLETELY DIFFERENT recommendations. Each MUST use a different action verb, different sentence structure, and address different life areas. ABSOLUTELY NO REPETITION OF PHRASES OR PATTERNS. Written in second person with concrete timeframes."
+            }
+        },
+        required: ["overall_analysis", "imposter_syndrome_detected", "imposter_confidence", "urgent_support_needed", "key_insights", "recommendations"]
+    };
+
+    const geminiResponse = await _callGeminiApi(
+        `JOURNAL ENTRY TO ANALYZE:\n"${entryText}"`,
+        systemPrompt,
+        analysisSchema
+    );
+
+    try {
+        const parsedAnalysis = JSON.parse(geminiResponse.text);
+        
+        // Post-processing: Remove duplicates if AI still repeated
+        if (parsedAnalysis.recommendations) {
+            const uniqueRecs = [];
+            const seenPhrases = new Set();
+            
+            for (const rec of parsedAnalysis.recommendations) {
+                // Extract first 10 words as fingerprint
+                const fingerprint = rec.split(' ').slice(0, 10).join(' ').toLowerCase();
+                if (!seenPhrases.has(fingerprint)) {
+                    uniqueRecs.push(rec);
+                    seenPhrases.add(fingerprint);
+                }
+            }
+            
+            parsedAnalysis.recommendations = uniqueRecs;
+        }
+        
+        console.log("✅ AI Analysis successful:", parsedAnalysis);
+        return parsedAnalysis;
+    } catch (e) {
+        console.error("Failed to parse AI analysis JSON:", e, "Raw text:", geminiResponse.text);
+        return {
+            overall_analysis: "Analysis failed: Could not parse AI response. Please try again.",
+            imposter_syndrome_detected: false,
+            imposter_confidence: 0,
+            urgent_support_needed: false,
+            key_insights: ["Unable to analyze entry at this time"],
+            recommendations: ["Check your network connection", "Ensure API Key is valid", "Try submitting your entry again"]
+        };
+    }
+};
+
+const analyzeMoodWithAI = async (text) => {
+    const systemPrompt = `You are an emotion detection AI. Based only on the provided text, 
+    identify the primary emotion or mood (e.g., "Calm", "Anxious", "Excited", "Reflective"). 
+    Respond with only the single, most appropriate word or short phrase. Do not add any punctuation or extra explanation.`;
+    
+    return _callGeminiApi(text, systemPrompt); 
+};
+
+export const geminiAnalysisService = {
+    analyzeJournalEntry,
+    analyzeMoodWithAI,
+};

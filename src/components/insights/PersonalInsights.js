@@ -1,49 +1,325 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { Heart, Star } from "lucide-react";
-import { motion } from "framer-motion";
+import { Heart, Star, TrendingDown, Sparkles, CheckCircle2, Circle, AlertCircle, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { journalService } from "../../services/journalService";
+import { geminiAnalysisService } from "../../services/geminiAnalysisService";
 
-export default function PersonalInsights({ strengths, encouragingMessage }) {
-  if (!strengths && !encouragingMessage) return null;
+export default function PersonalInsights() {
+  const [insights, setInsights] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [checkedStrengths, setCheckedStrengths] = useState({});
+  const [checkedWeaknesses, setCheckedWeaknesses] = useState({});
+
+  useEffect(() => {
+    generatePersonalizedInsights();
+  }, []);
+
+  const generatePersonalizedInsights = async () => {
+    setIsLoading(true);
+    try {
+      // Get recent journal entries
+      const entries = await journalService.getEntries(20);
+      
+      if (entries.length === 0) {
+        setInsights({
+          encouragingMessage: "Start your journaling journey today! Every entry helps you understand yourself better.",
+          strengths: [],
+          weaknesses: []
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Prepare data for AI analysis
+      const recentContent = entries.slice(0, 10).map(e => e.content).join("\n\n---\n\n");
+      const avgMood = entries.reduce((sum, e) => sum + (e.mood_score || 5), 0) / entries.length;
+      const allEmotions = entries.flatMap(e => e.emotions || []);
+      const emotionCounts = {};
+      allEmotions.forEach(emotion => {
+        emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+      });
+
+      // Call Gemini API for personalized insights
+      const systemPrompt = `You are a compassionate personal development analyst. Analyze the user's journal entries and provide personalized insights in SECOND PERSON (using "you", "your").
+
+Based on their journal history, identify:
+1. Three specific strengths they've demonstrated (be concrete and specific based on their actual entries)
+2. Three growth areas where they could improve (frame constructively, not negatively)
+3. One encouraging, personalized message (2-3 sentences)
+
+Average mood: ${avgMood.toFixed(1)}/10
+Most common emotions: ${Object.entries(emotionCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([e]) => e).join(", ")}
+Number of entries: ${entries.length}
+
+Output ONLY valid JSON in this exact structure:
+{
+  "strengths": ["strength 1", "strength 2", "strength 3"],
+  "growth_areas": ["area 1", "area 2", "area 3"],
+  "encouraging_message": "Your personalized encouraging message here"
+}
+
+Make it personal, specific, and based on their actual patterns. Use "you" and "your" throughout.`;
+
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.REACT_APP_GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: `${systemPrompt}\n\nRecent journal entries:\n${recentContent.substring(0, 3000)}` }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      const data = await response.json();
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (resultText) {
+        const parsedInsights = JSON.parse(resultText);
+        setInsights(parsedInsights);
+      } else {
+        throw new Error("No insights generated");
+      }
+    } catch (error) {
+      console.error("Error generating insights:", error);
+      // Fallback to basic insights
+      setInsights({
+        encouragingMessage: "You're doing great by taking time to reflect on yourself! Keep up the amazing work.",
+        strengths: [
+          "You show dedication by consistently journaling",
+          "You're building self-awareness through reflection",
+          "You demonstrate courage by being honest with yourself"
+        ],
+        growth_areas: [
+          "Consider exploring new coping strategies",
+          "Try to identify patterns in your emotional responses",
+          "Practice self-compassion during difficult moments"
+        ]
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleStrength = (index) => {
+    setCheckedStrengths(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const toggleWeakness = (index) => {
+    setCheckedWeaknesses(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="border-2 border-purple-200 bg-gradient-to-br from-white to-purple-50 shadow-xl">
+        <CardContent className="p-12 text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 mx-auto mb-4"
+          >
+            <Loader2 className="w-16 h-16 text-purple-600" />
+          </motion.div>
+          <p className="text-purple-700 font-semibold text-lg">Analyzing your journey...</p>
+          <p className="text-purple-600 text-sm mt-2">Discovering your unique patterns</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!insights) return null;
 
   return (
-    <div className="space-y-4">
-      {encouragingMessage && (
-        <Card className="border-pink-200 shadow-lg bg-gradient-to-r from-pink-50 to-purple-50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <Heart className="w-6 h-6 text-pink-500" />
-              <h3 className="text-lg font-semibold text-gray-800">A Message for You</h3>
-            </div>
-            <p className="text-gray-700 italic leading-relaxed">"{encouragingMessage}"</p>
-          </CardContent>
-        </Card>
+    <div className="space-y-6">
+      {/* Encouraging Message */}
+      {insights.encouragingMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-2 border-pink-300 bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 shadow-xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-pink-200/30 rounded-full blur-3xl" />
+            <CardContent className="p-8 relative">
+              <div className="flex items-start gap-4 mb-4">
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="p-3 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl shadow-lg flex-shrink-0"
+                >
+                  <Heart className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">A Message for You</h3>
+                  <p className="text-gray-700 leading-relaxed text-lg italic">
+                    "{insights.encouragingMessage}"
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
 
-      {strengths && strengths.length > 0 && (
-        <Card className="border-yellow-200 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-gray-700">
-              <Star className="w-5 h-5 text-yellow-400" />
-              Your Beautiful Strengths
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {strengths.map((strength, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-start gap-3 p-3 rounded-xl bg-yellow-50 border border-yellow-100"
-              >
-                <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2 flex-shrink-0"></div>
-                <p className="text-gray-700">{strength}</p>
-              </motion.div>
-            ))}
+      {/* Strengths & Growth Areas Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Strengths */}
+        {insights.strengths && insights.strengths.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-2 border-yellow-300 bg-gradient-to-br from-white to-yellow-50 shadow-xl h-full">
+              <CardHeader className="border-b-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 pb-4">
+                <CardTitle className="flex items-center gap-3 text-gray-900">
+                  <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl shadow-md">
+                    <Star className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">Your Beautiful Strengths</div>
+                    <div className="text-sm text-gray-600 font-normal">What makes you amazing</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {insights.strengths.map((strength, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + index * 0.1 }}
+                    onClick={() => toggleStrength(index)}
+                    whileHover={{ scale: 1.02, x: 5 }}
+                    className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer transition-all duration-300 ${
+                      checkedStrengths[index]
+                        ? 'bg-gradient-to-r from-yellow-200 to-amber-200 border-2 border-yellow-500 shadow-lg'
+                        : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 hover:border-yellow-400 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      {checkedStrengths[index] ? (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <CheckCircle2 className="w-7 h-7 text-yellow-700" />
+                        </motion.div>
+                      ) : (
+                        <Circle className="w-7 h-7 text-yellow-500" />
+                      )}
+                    </div>
+                    <p className={`text-gray-800 leading-relaxed flex-1 text-base ${
+                      checkedStrengths[index] ? 'line-through text-gray-500' : ''
+                    }`}>
+                      {strength}
+                    </p>
+                  </motion.div>
+                ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Growth Areas (Weaknesses) */}
+        {insights.growth_areas && insights.growth_areas.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-2 border-indigo-300 bg-gradient-to-br from-white to-indigo-50 shadow-xl h-full">
+              <CardHeader className="border-b-2 border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 pb-4">
+                <CardTitle className="flex items-center gap-3 text-gray-900">
+                  <div className="p-2 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl shadow-md">
+                    <TrendingDown className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold">Growth Opportunities</div>
+                    <div className="text-sm text-gray-600 font-normal">Areas to explore</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {insights.growth_areas.map((area, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + index * 0.1 }}
+                    onClick={() => toggleWeakness(index)}
+                    whileHover={{ scale: 1.02, x: 5 }}
+                    className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer transition-all duration-300 ${
+                      checkedWeaknesses[index]
+                        ? 'bg-gradient-to-r from-indigo-200 to-purple-200 border-2 border-indigo-500 shadow-lg'
+                        : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      {checkedWeaknesses[index] ? (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <CheckCircle2 className="w-7 h-7 text-indigo-700" />
+                        </motion.div>
+                      ) : (
+                        <Circle className="w-7 h-7 text-indigo-500" />
+                      )}
+                    </div>
+                    <p className={`text-gray-800 leading-relaxed flex-1 text-base ${
+                      checkedWeaknesses[index] ? 'line-through text-gray-500' : ''
+                    }`}>
+                      {area}
+                    </p>
+                  </motion.div>
+                ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Progress Indicator */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="text-center"
+      >
+        <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 shadow-lg inline-block">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <Sparkles className="w-6 h-6 text-green-600" />
+              <div className="text-left">
+                <p className="text-sm text-gray-600 font-medium">Your Progress</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {Object.values(checkedStrengths).filter(Boolean).length + Object.values(checkedWeaknesses).filter(Boolean).length}
+                  <span className="text-base text-gray-600 font-normal">
+                    /{(insights.strengths?.length || 0) + (insights.growth_areas?.length || 0)} acknowledged
+                  </span>
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      )}
+      </motion.div>
     </div>
   );
 }

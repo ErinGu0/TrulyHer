@@ -23,10 +23,9 @@ body::before {
   z-index: 0;
 }
 
+/* Only center inline text, not flex layouts */
 .centered-text {
-  text-align: center !important;
-  justify-content: center !important;
-  align-items: center !important;
+  text-align: center;
 }
 
 
@@ -91,4 +90,5 @@ body::before {
 @media (max-width: 768px) {
   .glass-effect {
     backdrop-filter: blur(5px);
-    }}
+  }
+}
