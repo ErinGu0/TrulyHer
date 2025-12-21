@@ -1,6 +1,6 @@
 /**
  * geminiAnalysisService.js
- * ULTRA-ENHANCED - Maximum anti-repetition
+ * ULTRA-ENHANCED - Maximum anti-repetition + EMOTION DETECTION
  */
 
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY; 
@@ -100,12 +100,19 @@ const analyzeJournalEntry = async (entryText, moodScore, recentThemes) => {
 Analyze the journal entry and output ONLY a valid JSON object following this exact structure:
 {
   "overall_analysis": "string - A compassionate 2-3 sentence summary",
+  "detected_emotions": ["array", "of", "emotion", "words"],
   "imposter_syndrome_detected": boolean,
   "imposter_confidence": number (0-1, confidence level of imposter syndrome detection),
   "urgent_support_needed": boolean,
   "key_insights": ["array", "of", "key insights"],
   "recommendations": ["array", "of", "recommendations"]
 }
+
+EMOTION DETECTION REQUIREMENTS:
+- Extract 3-8 specific emotions from the text
+- Use single words (e.g., "anxious", "hopeful", "frustrated", "proud", "overwhelmed")
+- Choose emotions that genuinely appear in the text, not generic ones
+- Common emotions: stressed, anxious, calm, excited, hopeful, proud, frustrated, overwhelmed, content, grateful, confused, determined, tired, energized, peaceful, worried, confident, uncertain
 
 🚨 CRITICAL ANTI-REPETITION RULES - READ CAREFULLY 🚨
 
@@ -150,6 +157,13 @@ The person's current mood score is ${moodScore}/10. Be warm, specific, and growt
                 type: "string",
                 description: "A compassionate 2-3 sentence summary in second person, addressing the person directly."
             },
+            detected_emotions: {
+                type: "array",
+                items: {
+                    type: "string"
+                },
+                description: "3-8 specific emotion words detected in the text (e.g., anxious, hopeful, stressed, proud). Use only single-word emotions."
+            },
             imposter_syndrome_detected: {
                 type: "boolean",
                 description: "True if clear signs of Imposter Syndrome are present (self-doubt, attributing success to luck, fear of exposure)."
@@ -177,7 +191,7 @@ The person's current mood score is ${moodScore}/10. Be warm, specific, and growt
                 description: "3-4 COMPLETELY DIFFERENT recommendations. Each MUST use a different action verb, different sentence structure, and address different life areas. ABSOLUTELY NO REPETITION OF PHRASES OR PATTERNS. Written in second person with concrete timeframes."
             }
         },
-        required: ["overall_analysis", "imposter_syndrome_detected", "imposter_confidence", "urgent_support_needed", "key_insights", "recommendations"]
+        required: ["overall_analysis", "detected_emotions", "imposter_syndrome_detected", "imposter_confidence", "urgent_support_needed", "key_insights", "recommendations"]
     };
 
     const geminiResponse = await _callGeminiApi(
@@ -206,12 +220,19 @@ The person's current mood score is ${moodScore}/10. Be warm, specific, and growt
             parsedAnalysis.recommendations = uniqueRecs;
         }
         
+        // Ensure detected_emotions exists and is an array
+        if (!parsedAnalysis.detected_emotions || !Array.isArray(parsedAnalysis.detected_emotions)) {
+            parsedAnalysis.detected_emotions = [];
+        }
+        
         console.log("✅ AI Analysis successful:", parsedAnalysis);
+        console.log("✅ Detected emotions:", parsedAnalysis.detected_emotions);
         return parsedAnalysis;
     } catch (e) {
         console.error("Failed to parse AI analysis JSON:", e, "Raw text:", geminiResponse.text);
         return {
             overall_analysis: "Analysis failed: Could not parse AI response. Please try again.",
+            detected_emotions: [],
             imposter_syndrome_detected: false,
             imposter_confidence: 0,
             urgent_support_needed: false,

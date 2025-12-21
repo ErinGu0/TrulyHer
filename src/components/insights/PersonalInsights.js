@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { Heart, Star, TrendingDown, Sparkles, CheckCircle2, Circle, AlertCircle, Loader2 } from "lucide-react";
+import { Heart, Star, TrendingDown, Sparkles, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { journalService } from "../../services/journalService";
 import { geminiAnalysisService } from "../../services/geminiAnalysisService";
@@ -8,8 +8,6 @@ import { geminiAnalysisService } from "../../services/geminiAnalysisService";
 export default function PersonalInsights() {
   const [insights, setInsights] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [checkedStrengths, setCheckedStrengths] = useState({});
-  const [checkedWeaknesses, setCheckedWeaknesses] = useState({});
 
   useEffect(() => {
     generatePersonalizedInsights();
@@ -107,20 +105,6 @@ Make it personal, specific, and based on their actual patterns. Use "you" and "y
     }
   };
 
-  const toggleStrength = (index) => {
-    setCheckedStrengths(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
-
-  const toggleWeakness = (index) => {
-    setCheckedWeaknesses(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
-
   if (isLoading) {
     return (
       <Card className="border-2 border-purple-200 bg-gradient-to-br from-white to-purple-50 shadow-xl">
@@ -203,30 +187,9 @@ Make it personal, specific, and based on their actual patterns. Use "you" and "y
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 + index * 0.1 }}
-                    onClick={() => toggleStrength(index)}
-                    whileHover={{ scale: 1.02, x: 5 }}
-                    className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer transition-all duration-300 ${
-                      checkedStrengths[index]
-                        ? 'bg-gradient-to-r from-yellow-200 to-amber-200 border-2 border-yellow-500 shadow-lg'
-                        : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 hover:border-yellow-400 hover:shadow-md'
-                    }`}
+                    className="p-5 rounded-2xl bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200"
                   >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {checkedStrengths[index] ? (
-                        <motion.div
-                          initial={{ scale: 0, rotate: -180 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                        >
-                          <CheckCircle2 className="w-7 h-7 text-yellow-700" />
-                        </motion.div>
-                      ) : (
-                        <Circle className="w-7 h-7 text-yellow-500" />
-                      )}
-                    </div>
-                    <p className={`text-gray-800 leading-relaxed flex-1 text-base ${
-                      checkedStrengths[index] ? 'line-through text-gray-500' : ''
-                    }`}>
+                    <p className="text-gray-800 leading-relaxed text-base">
                       {strength}
                     </p>
                   </motion.div>
@@ -262,30 +225,9 @@ Make it personal, specific, and based on their actual patterns. Use "you" and "y
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 + index * 0.1 }}
-                    onClick={() => toggleWeakness(index)}
-                    whileHover={{ scale: 1.02, x: 5 }}
-                    className={`flex items-start gap-4 p-5 rounded-2xl cursor-pointer transition-all duration-300 ${
-                      checkedWeaknesses[index]
-                        ? 'bg-gradient-to-r from-indigo-200 to-purple-200 border-2 border-indigo-500 shadow-lg'
-                        : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-md'
-                    }`}
+                    className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200"
                   >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {checkedWeaknesses[index] ? (
-                        <motion.div
-                          initial={{ scale: 0, rotate: -180 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                        >
-                          <CheckCircle2 className="w-7 h-7 text-indigo-700" />
-                        </motion.div>
-                      ) : (
-                        <Circle className="w-7 h-7 text-indigo-500" />
-                      )}
-                    </div>
-                    <p className={`text-gray-800 leading-relaxed flex-1 text-base ${
-                      checkedWeaknesses[index] ? 'line-through text-gray-500' : ''
-                    }`}>
+                    <p className="text-gray-800 leading-relaxed text-base">
                       {area}
                     </p>
                   </motion.div>
@@ -295,31 +237,6 @@ Make it personal, specific, and based on their actual patterns. Use "you" and "y
           </motion.div>
         )}
       </div>
-
-      {/* Progress Indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="text-center"
-      >
-        <Card className="border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 shadow-lg inline-block">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <Sparkles className="w-6 h-6 text-green-600" />
-              <div className="text-left">
-                <p className="text-sm text-gray-600 font-medium">Your Progress</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {Object.values(checkedStrengths).filter(Boolean).length + Object.values(checkedWeaknesses).filter(Boolean).length}
-                  <span className="text-base text-gray-600 font-normal">
-                    /{(insights.strengths?.length || 0) + (insights.growth_areas?.length || 0)} acknowledged
-                  </span>
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import PersonalInsights from "../components/insights/PersonalInsights";
 import GrowthPatterns from "../components/insights/GrowthPatterns";
 import SelfCareReminders from "../components/insights/SelfCareReminders";
+import InsightsPoster from "../components/insights/InsightsPoster";
 
 export default function InsightsPage() {
   const [entries, setEntries] = useState([]);
@@ -210,14 +211,24 @@ export default function InsightsPage() {
           <PersonalInsights 
             strengths={insights.strengths}
             encouragingMessage={insights.encouraging_message}
+            showCheckboxes={false}
           />
           
           <GrowthPatterns 
             patterns={insights.emotional_patterns}
             growthAreas={insights.growth_areas}
+            showCheckboxes={false}
           />
           
           <SelfCareReminders tips={insights.self_care_tips} />
+
+          {/* Beautiful Insights Poster */}
+          <InsightsPoster 
+            strengths={insights.strengths}
+            growthAreas={insights.growth_areas}
+            tips={insights.self_care_tips}
+            encouragingMessage={insights.encouraging_message}
+          />
         </motion.div>
       )}
 

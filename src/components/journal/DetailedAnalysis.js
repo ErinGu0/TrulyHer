@@ -1,30 +1,14 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Brain, Activity, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Cpu, Lightbulb, Target, CheckCircle2, Circle, TrendingUp, Heart } from "lucide-react";
+import { Brain, Activity, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Cpu, Lightbulb, Target, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function DetailedAnalysis({ entry, aiAnalysis }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [checkedRecommendations, setCheckedRecommendations] = useState({});
-  const [checkedInsights, setCheckedInsights] = useState({});
 
   const localAiAnalysis = aiAnalysis;
   const isAnalyzing = !aiAnalysis; 
-
-  const toggleRecommendation = (index) => {
-    setCheckedRecommendations(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
-
-  const toggleInsight = (index) => {
-    setCheckedInsights(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
   
   const getMoodColor = (mood) => {
     if (mood >= 8) return {
@@ -254,28 +238,9 @@ export default function DetailedAnalysis({ entry, aiAnalysis }) {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.1 }}
-                            onClick={() => toggleInsight(i)}
-                            whileHover={{ scale: 1.02, x: 5 }}
-                            className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                              checkedInsights[i] 
-                                ? 'bg-gradient-to-r from-blue-200 to-blue-100 border-blue-500 shadow-xl' 
-                                : 'bg-gradient-to-r from-white to-blue-50/50 border-gray-300 hover:border-blue-400 hover:shadow-lg'
-                            }`}
+                            className="p-5 rounded-2xl border-2 bg-gradient-to-r from-white to-blue-50/50 border-gray-300"
                           >
-                            <div className="flex-shrink-0 mt-1">
-                              {checkedInsights[i] ? (
-                                <motion.div
-                                  initial={{ scale: 0, rotate: -180 }}
-                                  animate={{ scale: 1, rotate: 0 }}
-                                  transition={{ type: "spring", stiffness: 300 }}
-                                >
-                                  <CheckCircle2 className="w-7 h-7 text-blue-700" />
-                                </motion.div>
-                              ) : (
-                                <Circle className="w-7 h-7 text-gray-400" />
-                              )}
-                            </div>
-                            <p className={`text-gray-800 leading-relaxed flex-1 text-base ${checkedInsights[i] ? 'line-through text-gray-500' : ''}`}>
+                            <p className="text-gray-800 leading-relaxed text-base">
                               {insight}
                             </p>
                           </motion.div>
@@ -298,28 +263,9 @@ export default function DetailedAnalysis({ entry, aiAnalysis }) {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.1 + 0.3 }}
-                            onClick={() => toggleRecommendation(i)}
-                            whileHover={{ scale: 1.02, x: 5 }}
-                            className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                              checkedRecommendations[i] 
-                                ? 'bg-gradient-to-r from-green-300 to-emerald-200 border-green-600 shadow-xl' 
-                                : 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-400 hover:border-green-500 hover:shadow-lg'
-                            }`}
+                            className="p-5 rounded-2xl border-2 bg-gradient-to-r from-green-100 to-emerald-100 border-green-400"
                           >
-                            <div className="flex-shrink-0 mt-1">
-                              {checkedRecommendations[i] ? (
-                                <motion.div
-                                  initial={{ scale: 0, rotate: -180 }}
-                                  animate={{ scale: 1, rotate: 0 }}
-                                  transition={{ type: "spring", stiffness: 300 }}
-                                >
-                                  <CheckCircle2 className="w-7 h-7 text-green-800" />
-                                </motion.div>
-                              ) : (
-                                <Circle className="w-7 h-7 text-green-600" />
-                              )}
-                            </div>
-                            <p className={`text-gray-800 leading-relaxed flex-1 text-base ${checkedRecommendations[i] ? 'line-through text-gray-500' : ''}`}>
+                            <p className="text-gray-800 leading-relaxed text-base">
                               {rec}
                             </p>
                           </motion.div>

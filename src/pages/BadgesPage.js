@@ -117,77 +117,70 @@ export default function BadgesPage() {
   const lockedBadges = badges.filter(b => !b.earned);
 
   return (
-    <div>
-      {/* TEST - Remove this after checking if it's red */}
-      <div className="bg-red-500 p-8 text-white font-bold text-center mb-4">
-        TEST - If this is red, Tailwind works!
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center mb-12">
+        <div className="flex items-center justify-center mb-3">
+          <Award className="w-8 h-8 text-gray-700" />
+        </div>
+        <h1 className="text-gray-800 mb-2">Your Accomplishments</h1>
+        <p className="text-gray-600">Celebrating every step of your beautiful journey 💗</p>
       </div>
 
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center mb-3">
-            <Award className="w-8 h-8 text-gray-700" />
-          </div>
-          <h1 className="text-gray-800 mb-2">Your Accomplishments</h1>
-          <p className="text-gray-600">Celebrating every step of your beautiful journey 💗</p>
-        </div>
+      {/* Stats */}
+      <div className="bg-white/70 backdrop-blur-md rounded-3xl p-8 border border-white/60 shadow-lg text-center">
+        <div className="text-5xl mb-3">🎖️</div>
+        <h2 className="text-gray-800 mb-2">{earnedBadgesList.length} of {badges.length} badges earned</h2>
+        <p className="text-gray-600">Keep journaling to unlock more achievements!</p>
+      </div>
 
-        {/* Stats */}
-        <div className="bg-white/70 backdrop-blur-md rounded-3xl p-8 border border-white/60 shadow-lg text-center">
-          <div className="text-5xl mb-3">🎖️</div>
-          <h2 className="text-gray-800 mb-2">{earnedBadgesList.length} of {badges.length} badges earned</h2>
-          <p className="text-gray-600">Keep journaling to unlock more achievements!</p>
-        </div>
-
-        {/* Earned Badges */}
-        <div>
-          <h3 className="text-gray-800 mb-6">✨ Earned Badges</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {earnedBadgesList.map((badge) => (
-              <div
-                key={badge.id}
-                className="bg-white/70 backdrop-blur-md rounded-3xl p-6 border border-white/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                    <span className="text-3xl">{badge.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-gray-800 mb-1">{badge.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
-                    {badge.earnedDate && (
-                      <p className="text-xs text-gray-500">Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                    )}
-                  </div>
+      {/* Earned Badges */}
+      <div>
+        <h3 className="text-gray-800 mb-6">✨ Earned Badges</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {earnedBadgesList.map((badge) => (
+            <div
+              key={badge.id}
+              className="bg-white/70 backdrop-blur-md rounded-3xl p-6 border border-white/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                  <span className="text-3xl">{badge.icon}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-gray-800 mb-1">{badge.name}</h3>
+                  <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
+                  {badge.earnedDate && (
+                    <p className="text-xs text-gray-500">Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Locked Badges */}
-        <div>
-          <h3 className="text-gray-800 mb-6">🔒 Locked Badges</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {lockedBadges.map((badge) => (
-              <div
-                key={badge.id}
-                className="bg-white/50 backdrop-blur-md rounded-3xl p-6 border border-white/50 shadow-lg relative overflow-hidden"
-              >
-                <div className="flex items-start gap-4 opacity-60">
-                  <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                    <span className="text-3xl grayscale">{badge.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-gray-700 mb-1">{badge.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
-                    <p className="text-xs text-gray-500 italic">Keep going to unlock!</p>
-                  </div>
+      {/* Locked Badges */}
+      <div>
+        <h3 className="text-gray-800 mb-6">🔒 Locked Badges</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {lockedBadges.map((badge) => (
+            <div
+              key={badge.id}
+              className="bg-white/50 backdrop-blur-md rounded-3xl p-6 border border-white/50 shadow-lg relative overflow-hidden"
+            >
+              <div className="flex items-start gap-4 opacity-60">
+                <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+                  <span className="text-3xl grayscale">{badge.icon}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-gray-700 mb-1">{badge.name}</h3>
+                  <p className="text-gray-600 text-sm mb-2">{badge.description}</p>
+                  <p className="text-xs text-gray-500 italic">Keep going to unlock!</p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

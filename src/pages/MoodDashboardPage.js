@@ -47,20 +47,25 @@ export default function MoodDashboardPage() {
     }
     return last7Days;
   };
-
-  const getAllEmotions = () => {
-    const emotionCount = {};
-    entries.forEach(entry => {
-      (entry.emotions || []).forEach(emotion => {
-        emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;
-      });
+const getAllEmotions = () => {
+  console.log('All entries:', entries);
+  console.log('First entry structure:', entries[0]);
+  
+  const emotionCount = {};
+  entries.forEach(entry => {
+    console.log('Entry emotions:', entry.emotions);
+    (entry.emotions || []).forEach(emotion => {
+      emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;
     });
-    return Object.entries(emotionCount)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 12)
-      .map(([emotion, count]) => ({ emotion, count }));
-  };
-
+  });
+  
+  console.log('Emotion count object:', emotionCount);
+  
+  return Object.entries(emotionCount)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 12)
+    .map(([emotion, count]) => ({ emotion, count }));
+};
   const averageMood = entries.length > 0 
     ? entries.reduce((sum, entry) => sum + (entry.mood_score || 5), 0) / entries.length 
     : 5;
