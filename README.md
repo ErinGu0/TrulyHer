@@ -1,70 +1,136 @@
-# Getting Started with Create React App
+# TrulyHer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An AI-powered journaling companion that helps women in STEM notice, understand, and gently overcome imposter syndrome.
 
-## Available Scripts
 
-In the project directory, you can run:
+## About
 
-### `npm start`
+TrulyHer is an empathetic AI journal built to support women in tech who feel overwhelmed, self-doubting, or unsure whether what they’re feeling is normal—or even imposter syndrome. It listens to daily reflections, tracks stress and mood patterns, and translates those signals into compassionate, personalized insights and micro-actions. The goal isn’t perfection. It’s small, steady steps toward better self-understanding, reduced procrastination, and a calmer relationship with work and learning.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Key things TrulyHer does:
+- Flags patterns that often show up with imposter syndrome and explains them in plain, non-judgmental language so users can name what’s happening.
+- Sends tailored, supportive messages and short, actionable nudges to break procrastination cycles and rebuild confidence.
+- Visualizes trends (stress, mood, behavioral patterns) to help users see progress and identify realistic, focused areas to improve.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Built with empathy-first design: TrulyHer treats progress as a series of tiny wins and focuses on safety, privacy, and encouragement.
 
-### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Features
 
-### `npm run build`
+- Daily reflection journal with stress and mood tracking
+- AI-generated, personalized encouragement and suggested micro-actions
+- Pattern detection that highlights signs of imposter syndrome with plain explanations
+- Visual insights and charts to show trends over time
+- Export personal insights into motivational poster (using html2canvas)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Tech stack 
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- React (frontend)
+- Tailwind CSS for styling
+- Node.js for local development
+- Uses Create React App (react-scripts) as configured in package.json
+- Optional AI integrations (Gemini API key used via environment variable)
 
-### `npm run eject`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Getting started (local)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Prerequisites:
+- Node.js (LTS recommended)
+- npm (comes with Node.js) or yarn
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Clone the repo:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+git clone https://github.com/ErinGu0/TrulyHer.git
+cd TrulyHer
+```
 
-## Learn More
+Install dependencies:
+```bash
+npm install
+# or
+# yarn
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Create a .env file in the project root (or copy the provided .env) and add your Gemini API key:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
+```
 
-### Code Splitting
+Start the app:
+```bash
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Build for production:
+``` bash
+npm run build
+```
 
-### Analyzing the Bundle Size
+Run tests:
+``` bash
+npm test
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+How to use
+Open the app at http://localhost:3000 after running npm start.
+Write short daily reflections in the journal area (the AI is optimized for brief, honest entries).
+Track your AI‑detected mood and stress levels from each entry, and view them to spot trends and patterns over time.
+Review the personalized messages and suggested micro-actions. Try one small action each day and track how it feels.
+Use the Insights page to see charts and trends that help you understand patterns over time.
 
-### Making a Progressive Web App
+## Why this helps with impostor syndrome
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Imposter syndrome often thrives in silence and uncertainty. TrulyHer reduces that silence by:
 
-### Advanced Configuration
+- Helping you give a name to what you’re experiencing (normalizing the feeling and reducing its power).
+- Translating emotions and behavior into clear, evidence-based observations instead of vague self-criticism.
+- Recommending tiny, doable steps that interrupt procrastination and build confidence through repeatable wins.
+- Reminding you that growth is non-linear — tracking progress over time shows real gains you may not notice day to day.
+- Language and tone are intentionally supportive and non-technical; the app focuses on clarity, kindness, and agency.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Contribution (you belong here)
+Thank you for caring about this project. Whether you’re filing a bug, suggesting a feature, writing documentation, or opening your first PR — you’re welcome.
 
-### Deployment
+## A few ways to help:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Fix typos or improve copy — accessible language matters here.
+- Add small UI improvements or accessibility fixes.
+- Add tests or improve existing ones.
+- Create issues labeled good-first-issue if you want to make it easier for beginners.
 
-### `npm run build` fails to minify
+## Guidelines for contributors:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Be kind and assume good intent.
+If you’re anxious about making your first contribution: open an issue first describing what you want to change and someone will help you.
+If a task sounds too big, break it into smaller PRs — small changes are easier to review and land faster.
+
+## Privacy & Safety
+TrulyHer is designed as a personal, private journaling tool. Notes on privacy:
+
+- By default, data is stored locally in the browser/session (confirm exact behavior in the code before deploying).
+- If you add remote sync or server-side storage, make sure to disclose how data is stored and secured.
+- This app is not a substitute for professional mental health care. If you or someone else is in crisis, seek immediate professional help.
+
+## Helpful resources (global)
+- International OCD Foundation: https://iocdf.org
+- MentalHealth.gov: https://www.mentalhealth.gov
+- If you need immediate help, contact local emergency services or a crisis hotline in your country.
+
+## Troubleshooting
+- If the app doesn’t start, ensure Node and npm versions are compatible and run npm install again.
+- If AI calls fail, check your REACT_APP_GEMINI_API_KEY and network connectivity.
+- For build errors, try removing node_modules and reinstalling:
+
+``` bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+Contact
+Maintainer: ErinGu0 (https://github.com/ErinGu0)
+
+
+Last updated: 2026-01-05
