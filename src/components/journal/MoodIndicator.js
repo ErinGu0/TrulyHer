@@ -10,61 +10,66 @@ export default function MoodIndicator({ text, onMoodScoreChange }) {
   const [moodScore, setMoodScore] = useState(5);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const timeoutRef = useRef(null);
+  
   const analyzeMoodWithAI = useCallback(async (textToAnalyze) => {
-  if (!textToAnalyze || textToAnalyze.trim().length < 15) return;
-  
-  console.log("🔍 Analyzing text:", textToAnalyze); // DEBUG
-  
-  setIsAnalyzing(true);
-  try {
-    const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-    console.log("🔑 API Key exists:", !!apiKey); // DEBUG
+    if (!textToAnalyze || textToAnalyze.trim().length < 15) return;
     
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    console.log("🔍 Analyzing text:", textToAnalyze); // DEBUG
     
-    const prompt = `
-    Analyze the emotional tone of this journal entry and return ONLY a single number between 1-10.
-    
-    Scoring guide:
-    1-2: Extremely negative (depressed, hopeless, devastated)
-    3-4: Very negative (sad, angry, distressed) 
-    5-6: Neutral or mixed emotions
-    7-8: Positive (happy, content, optimistic)
-    9-10: Very positive (joyful, excited, ecstatic)
-    
-    Journal entry: "${textToAnalyze}"
-    
-    Return ONLY the number, no other text.`;
+    setIsAnalyzing(true);
+    try {
+      const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+      console.log("🔑 API Key exists:", !!apiKey); // DEBUG
+      
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+      
+      const prompt = `
+      Analyze the emotional tone of this journal entry and return ONLY a single number between 1-10.
+      
+      Scoring guide:
+      1-2: Extremely negative (depressed, hopeless, devastated)
+      3-4: Very negative (sad, angry, distressed) 
+      5-6: Neutral or mixed emotions
+      7-8: Positive (happy, content, optimistic)
+      9-10: Very positive (joyful, excited, ecstatic)
+      
+      Journal entry: "${textToAnalyze}"
+      
+      Return ONLY the number, no other text.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const scoreText = response.text().trim();
-    console.log("📊 AI returned:", scoreText); // DEBUG
-    
-    const score = parseInt(scoreText);
-    
-    if (score >= 1 && score <= 10) {
-      setMoodScore(score);
-      onMoodScoreChange?.(score);
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const scoreText = response.text().trim();
+      console.log("📊 AI returned:", scoreText); // DEBUG
       
-      if (score >= 8) setMood('positive');
-      else if (score <= 4) setMood('negative');
-      else setMood('neutral');
+      const score = parseInt(scoreText);
       
-      console.log("✅ Mood set:", { score, mood }); // DEBUG
-    } else {
-      throw new Error(`Invalid score returned: ${scoreText}`);
+      if (score >= 1 && score <= 10) {
+        setMoodScore(score);
+        onMoodScoreChange?.(score);
+        
+        let newMood;
+        if (score >= 8) newMood = 'positive';
+        else if (score <= 4) newMood = 'negative';
+        else newMood = 'neutral';
+        
+        setMood(newMood);
+        
+        console.log("✅ Mood set:", { score, mood: newMood }); // DEBUG
+      } else {
+        throw new Error(`Invalid score returned: ${scoreText}`);
+      }
+    } catch (error) {
+      console.error('❌ AI Mood analysis failed:', error); // DEBUG
+      setMood('neutral');
+      setMoodScore(5);
+      onMoodScoreChange?.(5);
+    } finally {
+      setIsAnalyzing(false);
     }
-  } catch (error) {
-    console.error('❌ AI Mood analysis failed:', error); // DEBUG
-    setMood('neutral');
-    setMoodScore(5);
-    onMoodScoreChange?.(5);
-  } finally {
-    setIsAnalyzing(false);
-  }
-}, [onMoodScoreChange]);
+  }, [onMoodScoreChange]);
+  
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);

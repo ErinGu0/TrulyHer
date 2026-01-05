@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { journalService } from "../services/journalService";
 import { geminiAnalysisService } from "../services/geminiAnalysisService";
 import { Button } from "../components/ui/Button";
@@ -23,6 +23,8 @@ export default function JournalPage() {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [showSubmittedAnimation, setShowSubmittedAnimation] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  
+  const moodScoreRef = useRef(5);
 
   const handleLiveTranscription = (transcription) => {
     setContent(transcription);
@@ -33,6 +35,7 @@ export default function JournalPage() {
   };
 
   const handleMoodScoreChange = (score) => {
+    moodScoreRef.current = score;
     setMoodScore(score);
   };
 
@@ -40,12 +43,12 @@ export default function JournalPage() {
     if (!content.trim()) return;
     
     setIsAnalyzing(true);
-    console.log('Starting AI analysis with mood score:', moodScore);
+    console.log('Starting AI analysis with mood score:', moodScoreRef.current);
     
     try {
       const analysis = await geminiAnalysisService.analyzeJournalEntry(
         content, 
-        moodScore,
+        moodScoreRef.current,
         []
       );
 
@@ -62,7 +65,7 @@ export default function JournalPage() {
 
       const newEntry = {
         content: content.trim(),
-        mood_score: moodScore,
+        mood_score: moodScoreRef.current,
         emotions: analysis.detected_emotions || [],
         ai_insights: analysis.overall_analysis,
         critical_alerts: criticalAlerts,
@@ -80,6 +83,7 @@ export default function JournalPage() {
       setContent("");
       setAudioAnalysis(null);
       setMoodScore(5);
+      moodScoreRef.current = 5;
       
     } catch (error) {
       console.error("Error saving journal entry:", error);
@@ -94,6 +98,7 @@ export default function JournalPage() {
     setShowSubmittedAnimation(false);
     setAiAnalysis(null);
     setMoodScore(5);
+    moodScoreRef.current = 5;
   };
 
   // Results view - only show DailyTask once
