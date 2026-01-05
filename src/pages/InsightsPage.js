@@ -30,99 +30,40 @@ export default function InsightsPage() {
     setIsLoading(false);
   };
 
-  // Fixed: Moved these functions inside the component and removed 'this.'
-  const generateStrengths = (avgMood, emotions) => {
-    const strengths = [];
-    
-    if (avgMood >= 7) {
-      strengths.push("You maintain a consistently positive outlook");
-      strengths.push("Your resilience in maintaining good moods is impressive");
-    }
-    
-    if (emotions.includes('grateful') || emotions.includes('happy')) {
-      strengths.push("You have a strong sense of gratitude and appreciation");
-    }
-    
-    if (emotions.includes('calm') || emotions.includes('peaceful')) {
-      strengths.push("You demonstrate excellent emotional regulation skills");
-    }
-    
-    strengths.push("Your commitment to self-reflection shows great self-awareness");
-    strengths.push("You're building healthy habits through consistent journaling");
-    
-    return strengths.slice(0, 3);
-  };
-
-  const generateGrowthAreas = (avgMood, emotions) => {
-    const areas = [];
-    
-    if (avgMood <= 5) {
-      areas.push("Exploring techniques to boost daily mood and energy");
-      areas.push("Developing strategies for managing challenging emotions");
-    }
-    
-    if (emotions.includes('anxious') || emotions.includes('worried')) {
-      areas.push("Practicing mindfulness to reduce anxiety patterns");
-    }
-    
-    areas.push("Continuing to build on your self-reflection practice");
-    areas.push("Exploring new self-care activities that bring you joy");
-    
-    return areas.slice(0, 2);
-  };
-
-  const generatePatterns = (avgMood, emotions) => {
-    if (avgMood >= 7) {
-      return "You show a wonderful pattern of maintaining positive emotional states. Your consistency in finding joy and gratitude in daily life is a real strength that will serve you well in challenging times.";
-    } else if (avgMood >= 5) {
-      return "Your emotional patterns show healthy variation, indicating good emotional awareness. You experience a balanced range of feelings while maintaining overall stability.";
-    } else {
-      return "You're navigating some challenging emotional patterns with courage. Remember that acknowledging difficult feelings is the first step toward meaningful growth and resilience.";
-    }
-  };
-
-  const generateSelfCareTips = (avgMood) => {
-    const tips = [
-      "Take 5 minutes each morning to set positive intentions for the day",
-      "Practice deep breathing whenever you feel overwhelmed",
-      "Schedule regular breaks during your day to reset and recharge",
-      "Create a calming evening routine to promote restful sleep",
-      "Connect with supportive friends or family members regularly"
-    ];
-    
-    if (avgMood <= 5) {
-      tips.unshift("Prioritize activities that bring you genuine joy and relaxation");
-      tips.unshift("Be gentle with yourself - progress isn't always linear");
-    }
-    
-    return tips.slice(0, 4);
-  };
-
-  const generateEncouragement = (avgMood, entryCount) => {
-    if (entryCount === 0) return "Start your journey today - every entry is a step toward greater self-understanding!";
-    
-    if (avgMood >= 7) {
-      return "Your positive energy and self-awareness are truly inspiring! Keep nurturing this beautiful relationship with yourself.";
-    } else if (avgMood >= 5) {
-      return "You're doing the important work of self-discovery. Every entry, no matter the mood, contributes to your growth journey.";
-    } else {
-      return "Your courage in facing difficult emotions is remarkable. Remember that storms always pass, and you're building incredible resilience.";
-    }
-  };
-
   const generateInsights = async () => {
     if (entries.length === 0) return;
     
     setIsGenerating(true);
     
     try {
-      // Simulate AI analysis with timeout
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Generate mock insights based on actual entries
       const recentEntries = entries.slice(0, 10);
       
-      // Calculate average mood
+      // Extract AI-generated insights from actual entries
+      const allStrengths = [];
+      const allGrowthAreas = [];
+      const allRecommendations = [];
+      
+      recentEntries.forEach(entry => {
+        if (entry.ai_analysis) {
+          // Extract key insights as strengths
+          if (entry.ai_analysis.key_insights) {
+            allStrengths.push(...entry.ai_analysis.key_insights);
+          }
+          
+          // Extract recommendations as growth areas
+          if (entry.ai_analysis.recommendations) {
+            allGrowthAreas.push(...entry.ai_analysis.recommendations);
+          }
+        }
+      });
+      
+      // Remove duplicates and get unique insights
+      const uniqueStrengths = [...new Set(allStrengths)].slice(0, 3);
+      const uniqueGrowthAreas = [...new Set(allGrowthAreas)].slice(0, 3);
+      
+      // Calculate average mood for patterns and encouragement
       const avgMood = recentEntries.length > 0 
         ? recentEntries.reduce((sum, e) => sum + (e.mood_score || 5), 0) / recentEntries.length 
         : 5;
@@ -140,21 +81,105 @@ export default function InsightsPage() {
         .slice(0, 3)
         .map(([emotion]) => emotion);
 
-      // Fixed: Use the functions directly without 'this.'
-      const mockInsights = {
-        strengths: generateStrengths(avgMood, commonEmotions),
-        growth_areas: generateGrowthAreas(avgMood, commonEmotions),
+      // Generate self-care tips
+      const selfCareTips = generateSelfCareTips(avgMood, commonEmotions);
+      
+      const generatedInsights = {
+        strengths: uniqueStrengths.length > 0 ? uniqueStrengths : generateFallbackStrengths(avgMood, commonEmotions),
+        growth_areas: uniqueGrowthAreas.length > 0 ? uniqueGrowthAreas : generateFallbackGrowthAreas(avgMood, commonEmotions),
         emotional_patterns: generatePatterns(avgMood, commonEmotions),
-        self_care_tips: generateSelfCareTips(avgMood),
+        self_care_tips: selfCareTips,
         encouraging_message: generateEncouragement(avgMood, entries.length)
       };
 
-      setInsights(mockInsights);
+      setInsights(generatedInsights);
     } catch (error) {
       console.error("Error generating insights:", error);
     }
     
     setIsGenerating(false);
+  };
+
+  const generateFallbackStrengths = (avgMood, emotions) => {
+    const strengths = [];
+    
+    if (avgMood >= 7) {
+      strengths.push("You maintain a consistently positive outlook even through life's challenges");
+      strengths.push("Your resilience in maintaining good moods shows impressive emotional strength");
+    }
+    
+    if (emotions.includes('grateful') || emotions.includes('happy')) {
+      strengths.push("You have a strong sense of gratitude and find joy in everyday moments");
+    }
+    
+    if (emotions.includes('calm') || emotions.includes('peaceful')) {
+      strengths.push("You demonstrate excellent emotional regulation and inner peace");
+    }
+    
+    strengths.push("Your commitment to self-reflection shows deep self-awareness and wisdom");
+    strengths.push("You're building healthy habits through consistent journaling and growth");
+    
+    return strengths.slice(0, 3);
+  };
+
+  const generateFallbackGrowthAreas = (avgMood, emotions) => {
+    const areas = [];
+    
+    if (avgMood <= 5) {
+      areas.push("Exploring techniques to boost daily mood and restore your natural energy");
+      areas.push("Developing personalized strategies for managing challenging emotions with grace");
+    }
+    
+    if (emotions.includes('anxious') || emotions.includes('worried')) {
+      areas.push("Practicing mindfulness and grounding techniques to reduce anxiety patterns");
+    }
+    
+    areas.push("Continuing to build on your self-reflection practice with compassion");
+    areas.push("Exploring new self-care activities that align with your authentic needs");
+    
+    return areas.slice(0, 3);
+  };
+
+  const generatePatterns = (avgMood, emotions) => {
+    if (avgMood >= 7) {
+      return "You show a wonderful pattern of maintaining positive emotional states. Your consistency in finding joy and gratitude in daily life is a real strength that will serve you well in challenging times.";
+    } else if (avgMood >= 5) {
+      return "Your emotional patterns show healthy variation, indicating good emotional awareness. You experience a balanced range of feelings while maintaining overall stability.";
+    } else {
+      return "You're navigating some challenging emotional patterns with courage. Remember that acknowledging difficult feelings is the first step toward meaningful growth and resilience.";
+    }
+  };
+
+  const generateSelfCareTips = (avgMood, emotions) => {
+    const tips = [
+      "Take 5 minutes each morning to set positive intentions for the day ahead",
+      "Practice deep breathing whenever you feel overwhelmed or anxious",
+      "Schedule regular breaks during your day to reset and recharge your energy",
+      "Create a calming evening routine to promote restful, restorative sleep"
+    ];
+    
+    if (avgMood <= 5) {
+      tips.unshift("Prioritize activities that bring you genuine joy and deep relaxation");
+      tips.unshift("Be gentle with yourself - progress isn't always linear, and that's okay");
+    }
+    
+    if (emotions.includes('stressed') || emotions.includes('overwhelmed')) {
+      tips.push("Connect with supportive friends or family members who uplift you");
+    }
+    
+    return tips.slice(0, 4);
+  };
+
+  const generateEncouragement = (avgMood, entryCount) => {
+    if (entryCount === 0) return "Start your journey today - every entry is a step toward greater self-understanding!";
+    
+    if (avgMood >= 7) {
+      return "Your positive energy and self-awareness are truly inspiring! Keep nurturing this beautiful relationship with yourself.";
+    } else if (avgMood >= 5) {
+      return "You're doing the important work of self-discovery. Every entry, no matter the mood, contributes to your growth journey.";
+    } else {
+      return "Your courage in facing difficult emotions is remarkable. Remember that storms always pass, and you're building incredible resilience.";
+    }
   };
 
   return (
@@ -228,6 +253,7 @@ export default function InsightsPage() {
             growthAreas={insights.growth_areas}
             tips={insights.self_care_tips}
             encouragingMessage={insights.encouraging_message}
+            entries={entries}
           />
         </motion.div>
       )}
