@@ -1,7 +1,13 @@
 # TrulyHer
 
 An AI-powered journaling companion that helps women in STEM notice, understand, and gently overcome imposter syndrome.
-
+## Screenshots  
+### Journal Entry Interface 
+![Journal entry screen](./Assets/Screenshot_5-1-2026_121625_localhost.png) 
+### Personalized AI Message 
+![AI message](./Assets/Screenshot_5-1-2026_12173_localhost.png)
+ ### Mood & Stress Insights 
+![Insights chart](./Assets/Screenshot_5-1-2026_121830_localhost.png)
 
 ## About
 
