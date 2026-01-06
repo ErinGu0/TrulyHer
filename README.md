@@ -34,15 +34,19 @@ This project is my way of turning something painful into something supportive. I
 - Optional Gemini API integration (via environment variable)
 
 ## Getting Started
-
+``` bash
 git clone https://github.com/ErinGu0/TrulyHer.git
+
 cd TrulyHer
+
 npm install
+
 npm start
 
 Add your Gemini API key in `.env`:
 
 REACT_APP_GEMINI_API_KEY=your_key_here
+```
 
 ## How It Helps
 
