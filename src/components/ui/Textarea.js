@@ -77,9 +77,12 @@ export const Textarea = ({
         />
         
         {/* Subtle focus glow */}
-        <div className="absolute inset-0 rounded-xl pointer-events-none transition-all duration-300 group-focus-within:ring-4 opacity-0 group-focus-within:opacity-100 z-0
-          ${error ? 'ring-red-100' : success ? 'ring-green-100' : 'ring-pink-100'}" 
-        />
+       <div
+  className={`absolute inset-0 rounded-xl pointer-events-none transition-all duration-300 
+    group-focus-within:ring-4 opacity-0 group-focus-within:opacity-100 z-0
+    ${error ? 'ring-red-100' : success ? 'ring-green-100' : 'ring-pink-100'}
+  `}
+/>
       </div>
 
       {/* Status messages */}
