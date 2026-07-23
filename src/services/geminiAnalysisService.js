@@ -4,6 +4,7 @@
  */
 
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY; 
+const hasApiKey = Boolean(apiKey);
 
 if (!apiKey) {
     console.error("Gemini API Key is missing. Check your environment variables (REACT_APP_GEMINI_API_KEY).");
@@ -11,9 +12,23 @@ if (!apiKey) {
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODEL_NAME = "gemini-2.5-flash-preview-09-2025"; 
-const API_URL = `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}`;
+const API_URL = hasApiKey ? `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}` : null;
+
+const createFallbackAnalysis = () => ({
+    overall_analysis: "Your journal entry is saved locally. AI insights are temporarily unavailable because the Gemini API key is not configured yet.",
+    detected_emotions: [],
+    imposter_syndrome_detected: false,
+    imposter_confidence: 0,
+    urgent_support_needed: false,
+    key_insights: ["Add a valid Gemini API key to enable AI-powered insights"],
+    recommendations: ["Keep journaling to build your history locally", "Try again after configuring the API key"]
+});
 
 const _callGeminiApi = async (userQuery, systemPrompt, responseSchema = null) => {
+    if (!hasApiKey || !API_URL) {
+        throw new Error("Missing Gemini API key");
+    }
+
     const maxRetries = 5;
     let attempt = 0;
 
@@ -95,6 +110,11 @@ const _callGeminiApi = async (userQuery, systemPrompt, responseSchema = null) =>
 };
 
 const analyzeJournalEntry = async (entryText, moodScore, recentThemes) => {
+    if (!hasApiKey) {
+        console.warn("Gemini API key not configured. Returning local fallback analysis.");
+        return createFallbackAnalysis();
+    }
+
     const systemPrompt = `You are a compassionate personal journal analyst having a direct conversation with the person writing. 
 
 Analyze the journal entry and output ONLY a valid JSON object following this exact structure:
@@ -243,6 +263,10 @@ The person's current mood score is ${moodScore}/10. Be warm, specific, and growt
 };
 
 const analyzeMoodWithAI = async (text) => {
+    if (!hasApiKey) {
+        return "Neutral";
+    }
+
     const systemPrompt = `You are an emotion detection AI. Based only on the provided text, 
     identify the primary emotion or mood (e.g., "Calm", "Anxious", "Excited", "Reflective"). 
     Respond with only the single, most appropriate word or short phrase. Do not add any punctuation or extra explanation.`;

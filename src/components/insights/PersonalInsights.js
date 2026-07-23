@@ -15,6 +15,23 @@ export default function PersonalInsights() {
 
   const generatePersonalizedInsights = async () => {
     setIsLoading(true);
+
+    if (!process.env.REACT_APP_GEMINI_API_KEY) {
+      setInsights({
+        encouragingMessage: "Your journal is working locally. Add a Gemini API key to unlock AI-generated insights.",
+        strengths: [
+          "You are building self-awareness through reflection",
+          "You are showing consistency by journaling"
+        ],
+        growth_areas: [
+          "Consider adding a Gemini API key for richer insights",
+          "Keep capturing entries to build a fuller picture over time"
+        ]
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Get recent journal entries
       const entries = await journalService.getEntries(20);

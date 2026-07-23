@@ -13,6 +13,14 @@ export default function MoodIndicator({ text, onMoodScoreChange }) {
   
   const analyzeMoodWithAI = useCallback(async (textToAnalyze) => {
     if (!textToAnalyze || textToAnalyze.trim().length < 15) return;
+
+    if (!process.env.REACT_APP_GEMINI_API_KEY) {
+      setMood('neutral');
+      setMoodScore(5);
+      onMoodScoreChange?.(5);
+      setIsAnalyzing(false);
+      return;
+    }
     
     console.log("🔍 Analyzing text:", textToAnalyze); // DEBUG
     
