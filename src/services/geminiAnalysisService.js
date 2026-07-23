@@ -3,16 +3,12 @@
  * ULTRA-ENHANCED - Maximum anti-repetition + EMOTION DETECTION
  */
 
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY; 
-const hasApiKey = Boolean(apiKey);
+const API_PROXY_URL = '/api/gemini';
+const hasApiKey = Boolean(process.env.REACT_APP_GEMINI_API_KEY);
 
-if (!apiKey) {
+if (!hasApiKey) {
     console.error("Gemini API Key is missing. Check your environment variables (REACT_APP_GEMINI_API_KEY).");
 }
-
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL_NAME = "gemini-2.5-flash-preview-09-2025"; 
-const API_URL = hasApiKey ? `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}` : null;
 
 const createFallbackAnalysis = () => ({
     overall_analysis: "Your journal entry is saved locally. AI insights are temporarily unavailable because the Gemini API key is not configured yet.",
@@ -25,88 +21,39 @@ const createFallbackAnalysis = () => ({
 });
 
 const _callGeminiApi = async (userQuery, systemPrompt, responseSchema = null) => {
-    if (!hasApiKey || !API_URL) {
+    if (!hasApiKey) {
         throw new Error("Missing Gemini API key");
     }
 
-    const maxRetries = 5;
-    let attempt = 0;
-
     const payload = {
-        contents: [
-            {
-                parts: [
-                    { text: `${systemPrompt}\n\n${userQuery}` }
-                ]
-            }
-        ]
+        type: 'analysis',
+        payload: {
+            prompt: userQuery,
+            systemPrompt,
+            responseSchema
+        }
     };
 
-    if (responseSchema) {
-        payload.generationConfig = {
-            responseMimeType: "application/json",
-            responseSchema: responseSchema
-        };
+    const response = await fetch(API_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
     }
 
-    const headers = { 'Content-Type': 'application/json' };
+    const result = await response.json();
+    const text = result?.data?.text || result?.data;
+    const sources = result?.data?.sources || [];
 
-    while (attempt < maxRetries) {
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.status === 400) {
-                const errorData = await response.json();
-                console.error("400 Bad Request Error:", errorData);
-                console.error("Payload sent:", payload);
-                throw new Error(`API Error: ${errorData.error?.message || 'Unknown error'}`);
-            }
-
-            if (response.status === 429) {
-                throw new Error(`Rate limit exceeded (429)`);
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            const candidate = result.candidates?.[0];
-
-            if (candidate && candidate.content?.parts?.[0]?.text) {
-                const text = candidate.content.parts[0].text;
-                let sources = [];
-                
-                const groundingMetadata = candidate.groundingMetadata;
-                if (groundingMetadata && groundingMetadata.groundingAttributions) {
-                    sources = groundingMetadata.groundingAttributions
-                        .map(attribution => ({
-                            uri: attribution.web?.uri,
-                            title: attribution.web?.title,
-                        }))
-                        .filter(source => source.uri && source.title);
-                }
-
-                return { text, sources };
-            } else {
-                throw new Error("Invalid or empty response from Gemini API.");
-            }
-
-        } catch (error) {
-            attempt++;
-            if (attempt >= maxRetries) {
-                console.error("Gemini API call failed after multiple retries:", error);
-                throw new Error("Failed to communicate with the AI service.");
-            }
-            const delay = Math.pow(2, attempt) * 1000;
-            console.warn(`Retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
+    if (text) {
+        return { text, sources };
     }
+
+    throw new Error("Invalid or empty response from Gemini API.");
 };
 
 const analyzeJournalEntry = async (entryText, moodScore, recentThemes) => {

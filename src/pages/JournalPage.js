@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { journalService } from "../services/journalService";
 import { geminiAnalysisService } from "../services/geminiAnalysisService";
 import { Button } from "../components/ui/Button";
@@ -23,6 +23,7 @@ export default function JournalPage() {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [showSubmittedAnimation, setShowSubmittedAnimation] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
   
   const moodScoreRef = useRef(5);
 
@@ -38,6 +39,10 @@ export default function JournalPage() {
     moodScoreRef.current = score;
     setMoodScore(score);
   };
+
+  useEffect(() => {
+    setAiUnavailable(!process.env.REACT_APP_GEMINI_API_KEY);
+  }, []);
 
   const analyzeAndSave = async () => {
     if (!content.trim()) return;
@@ -269,6 +274,16 @@ export default function JournalPage() {
             This is your safe space to reflect, process, and grow. Your thoughts and experiences matter ✨
           </p>
         </motion.div>
+
+        {aiUnavailable && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm"
+          >
+            AI features are currently unavailable. Your journal entry will still be saved locally, and you can keep using the app while the API is configured.
+          </motion.div>
+        )}
 
         {/* Main Card */}
         <motion.div
