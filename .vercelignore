@@ -1,0 +1,5 @@
+lambda-deploy
+build
+*.zip
+AWS-SETUP.md
+AWS-SETUP-COMPLETE.md

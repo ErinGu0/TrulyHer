@@ -1,0 +1,12 @@
+{
+  "name": "trulyher-lambda",
+  "version": "1.0.0",
+  "description": "TrulyHer Lambda function with Gemini AI and Cognito auth",
+  "main": "lambda-function-complete.js",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwk-to-pem": "^2.0.5",
+    "node-fetch": "^2.7.0"
+  }
+}
