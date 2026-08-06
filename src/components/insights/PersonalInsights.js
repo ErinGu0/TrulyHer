@@ -15,6 +15,23 @@ export default function PersonalInsights() {
 
   const generatePersonalizedInsights = async () => {
     setIsLoading(true);
+
+    if (!process.env.REACT_APP_GEMINI_API_KEY) {
+      setInsights({
+        encouragingMessage: "Your journal is working locally. Add a Gemini API key to unlock AI-generated insights.",
+        strengths: [
+          "You are building self-awareness through reflection",
+          "You are showing consistency by journaling"
+        ],
+        growth_areas: [
+          "Consider adding a Gemini API key for richer insights",
+          "Keep capturing entries to build a fuller picture over time"
+        ]
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Get recent journal entries
       const entries = await journalService.getEntries(20);
@@ -59,27 +76,25 @@ Output ONLY valid JSON in this exact structure:
 
 Make it personal, specific, and based on their actual patterns. Use "you" and "your" throughout.`;
 
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent", {
+      const response = await fetch("/api/gemini", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.REACT_APP_GEMINI_API_KEY
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `${systemPrompt}\n\nRecent journal entries:\n${recentContent.substring(0, 3000)}` }]
-          }],
-          generationConfig: {
-            responseMimeType: "application/json"
+          type: "insights",
+          payload: {
+            prompt: `Recent journal entries:\n${recentContent.substring(0, 3000)}`,
+            systemPrompt
           }
         })
       });
 
       const data = await response.json();
-      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const resultText = data?.data?.text || data?.data;
       
       if (resultText) {
-        const parsedInsights = JSON.parse(resultText);
+        const parsedInsights = typeof resultText === 'string' ? JSON.parse(resultText) : resultText;
         setInsights(parsedInsights);
       } else {
         throw new Error("No insights generated");

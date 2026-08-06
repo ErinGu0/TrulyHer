@@ -64,8 +64,8 @@ function App() {
   };
 
   return (
-    <Layout 
-      currentPageName={currentPage} 
+    <Layout
+      currentPageName={currentPage}
       onPageChange={setCurrentPage}
       user={user}
       onLogout={handleLogout}

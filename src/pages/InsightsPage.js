@@ -96,7 +96,7 @@ export default function InsightsPage() {
       };
 
       setInsights(generatedInsights);
-      
+
       // Store insights in DynamoDB
       try {
         await lambdaService.storeInsightsGeneration(generatedInsights);
@@ -249,10 +249,10 @@ export default function InsightsPage() {
             encouragingMessage={insights.encouraging_message}
             showCheckboxes={false}
           />
-          
+
           <ImpostorPatterns />
-          
-          <GrowthPatterns 
+
+          <GrowthPatterns
             patterns={insights.emotional_patterns}
             growthAreas={insights.growth_areas}
             showCheckboxes={false}

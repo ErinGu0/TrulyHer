@@ -1,6 +1,7 @@
 // src/services/personalizationService.js
 
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+const hasApiKey = Boolean(apiKey);
 
 if (!apiKey) {
   console.error("Gemini API Key is missing for personalization service.");
@@ -8,9 +9,13 @@ if (!apiKey) {
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
-const API_URL = `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}`;
+const API_URL = hasApiKey ? `${BASE_URL}/${MODEL_NAME}:generateContent?key=${apiKey}` : null;
 
 const _callGeminiApi = async (prompt, responseSchema) => {
+  if (!hasApiKey || !API_URL) {
+    throw new Error("Missing Gemini API key");
+  }
+
   const payload = {
     contents: [
       {
@@ -51,6 +56,11 @@ const _callGeminiApi = async (prompt, responseSchema) => {
 export const personalizationService = {
   // Extract preferences from journal entries with deep psychological analysis
   async extractPreferences(entries) {
+    if (!hasApiKey) {
+      console.warn("Gemini API key not configured; skipping personalization analysis.");
+      return null;
+    }
+
     if (!entries || entries.length === 0) return null;
 
     const allContent = entries
@@ -165,6 +175,10 @@ Extract comprehensive insights about this person.`;
 
   // Generate multiple personalized messages at once
   async generateMultipleMessages(preferences, contexts = ["starting_task", "overcoming_resistance", "building_momentum"]) {
+    if (!hasApiKey) {
+      return [];
+    }
+
     if (!preferences) return [];
 
     const preferencesText = JSON.stringify(preferences, null, 2);

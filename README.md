@@ -57,7 +57,10 @@ Create a .env file in the project root (or copy the provided .env) and add your 
 
 ```bash
 REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_server_side_gemini_api_key_here
 ```
+
+For Vercel deployments, add both values in the project environment variables settings. The frontend uses REACT_APP_GEMINI_API_KEY for local UI checks, while the serverless Gemini endpoint uses GEMINI_API_KEY on the server side.
 
 Start the app:
 ```bash

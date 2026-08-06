@@ -13,17 +13,19 @@ export default function MoodIndicator({ text, onMoodScoreChange }) {
   
   const analyzeMoodWithAI = useCallback(async (textToAnalyze) => {
     if (!textToAnalyze || textToAnalyze.trim().length < 15) return;
+
+    if (!process.env.REACT_APP_GEMINI_API_KEY) {
+      setMood('neutral');
+      setMoodScore(5);
+      onMoodScoreChange?.(5);
+      setIsAnalyzing(false);
+      return;
+    }
     
     console.log("🔍 Analyzing text:", textToAnalyze); // DEBUG
     
     setIsAnalyzing(true);
     try {
-      const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-      console.log("🔑 API Key exists:", !!apiKey); // DEBUG
-      
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-      
       const prompt = `
       Analyze the emotional tone of this journal entry and return ONLY a single number between 1-10.
       
@@ -38,9 +40,17 @@ export default function MoodIndicator({ text, onMoodScoreChange }) {
       
       Return ONLY the number, no other text.`;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const scoreText = response.text().trim();
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'mood',
+          payload: { prompt }
+        })
+      });
+
+      const result = await response.json();
+      const scoreText = result?.data?.text || result?.data || '';
       console.log("📊 AI returned:", scoreText); // DEBUG
       
       const score = parseInt(scoreText);
