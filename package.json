@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@huggingface/transformers": "^3.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
@@ -15,6 +15,7 @@
     "framer-motion": "^12.23.22",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.544.0",
+    "pg": "^8.13.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-scripts": "5.0.1",
@@ -22,6 +23,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "copy:ort": "node scripts/copy-ort-runtime.js",
+    "prestart": "npm run copy:ort",
+    "prebuild": "npm run copy:ort",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
