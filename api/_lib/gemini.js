@@ -9,7 +9,7 @@ const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 // Stable, not the -preview- alias the app shipped with. Google's docs state
 // preview models "typically have billing enabled" and are retired on two weeks'
 // notice -- both bad properties for the default path of a free-tier project.
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
 
 export function isAiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY);

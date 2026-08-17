@@ -34,18 +34,39 @@ import json
 import os
 import random
 import time
+import urllib.error
+import urllib.request
 
-import google.generativeai as genai
-from tqdm import tqdm
+from config import LABELS, LABEL_DESCRIPTIONS, PROJECT_ROOT, RAW_DIR, WEAK_PATH, SEED
 
-from config import LABELS, LABEL_DESCRIPTIONS, RAW_DIR, WEAK_PATH, SEED
+# Standard library only -- no google-generativeai, no tqdm. The whole point of
+# distillation here is to avoid a heavy runtime; making step 1 need a 200 MB SDK
+# to make plain HTTPS POSTs would be self-defeating, and it means this runs on a
+# machine with no room left for a virtualenv.
+API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-MODEL = "gemini-2.5-flash"
+# Free-tier quotas are PER MODEL, and the newest models have the tightest caps
+# -- gemini-3.7-flash runs out after roughly 13 requests a day. Rolling to the
+# next model when one is exhausted turns a ten-day labeling schedule into a
+# single sitting, using nothing but the free tier as offered.
+#
+# The tradeoff is real and worth stating: different teachers disagree at the
+# margins, so this introduces label noise. Every row records which model
+# produced it (`teacher_model`) so that noise can be measured rather than
+# assumed away -- and if one model turns out to be an outlier, its rows can be
+# dropped without re-labeling everything.
+MODEL_CHAIN = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+]
 
 # Sized for Gemini's FREE tier, which as of 2026 allows roughly 10 requests per
-# minute and 250-500 per day on 2.5-flash (Google cut these ~50-80% in December
-# 2025). At 25 texts per request, a 3,000-text corpus is 120 requests -- one
-# sitting, about 12 minutes, comfortably inside the daily cap.
+# minute and 250-500 per day on flash models (Google cut these ~50-80% in
+# December 2025). At 25 texts per request, a 3,000-text corpus is 120 requests
+# -- one sitting, about 12 minutes, comfortably inside the daily cap.
 #
 # Going much above 25 starts to degrade label quality: the model loses track of
 # which text it is annotating and the index field drifts.
@@ -135,24 +156,70 @@ def already_labeled():
     return done
 
 
-def label_batch(model, texts):
+def load_api_key():
+    """Prefer the shell, fall back to .env so `python3 ml/label_data.py` just works."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if key:
+        return key
+
+    env_path = PROJECT_ROOT / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("GEMINI_API_KEY=") and not line.startswith("#"):
+                return line.split("=", 1)[1].strip()
+    return None
+
+
+class QuotaExceeded(Exception):
+    pass
+
+
+def label_batch(api_key, texts, model):
     numbered = "\n\n".join(f"[{i}] {text}" for i, text in enumerate(texts))
-    response = model.generate_content(
-        f"{SYSTEM_PROMPT}\n\nTEXTS TO ANNOTATE:\n\n{numbered}",
-        generation_config={
+
+    body = {
+        "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\nTEXTS TO ANNOTATE:\n\n{numbered}"}]}],
+        "generationConfig": {
             "response_mime_type": "application/json",
             "response_schema": RESPONSE_SCHEMA,
-            # Deterministic labeling: we want the same text to get the same
-            # label if it appears twice, not creative variation.
+            # Deterministic labeling: the same text should get the same label if
+            # it appears twice, not creative variation.
             "temperature": 0.0,
         },
+    }
+
+    request = urllib.request.Request(
+        f"{API_BASE}/{model}:generateContent?key={api_key}",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
     )
-    return json.loads(response.text)
 
+    # 503 "high demand" is common on the free tier and is transient. Retrying in
+    # place beats deferring to the next run: the texts are already batched, and
+    # a skipped batch costs a whole request's worth of quota for nothing.
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                payload = json.load(response)
+            break
+        except urllib.error.HTTPError as error:
+            if error.code == 429:
+                raise QuotaExceeded(error.read().decode()[:200]) from error
+            if error.code >= 500 and attempt < 3:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise RuntimeError(f"HTTP {error.code}: {error.read().decode()[:200]}") from error
+        except (urllib.error.URLError, TimeoutError):
+            if attempt < 3:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise
+    else:
+        raise RuntimeError("exhausted retries")
 
-def is_quota_error(error):
-    text = str(error).lower()
-    return "429" in text or "quota" in text or "resource_exhausted" in text
+    text = payload["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(text)
 
 
 def main():
@@ -167,11 +234,9 @@ def main():
                         help="discard previous output instead of resuming")
     args = parser.parse_args()
 
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = load_api_key()
     if not api_key:
-        raise SystemExit("GEMINI_API_KEY is not set")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(MODEL)
+        raise SystemExit("GEMINI_API_KEY is not set (checked the environment and .env)")
 
     if args.restart and WEAK_PATH.exists():
         WEAK_PATH.unlink()
@@ -196,27 +261,48 @@ def main():
     written = 0
     skipped_low_confidence = 0
     quota_hit = False
+    model_index = 0
+    model_usage = {}
 
     # Append, never truncate: a run cut short by quota must leave its work behind.
     with WEAK_PATH.open("a") as out:
-        for batch_index in tqdm(range(batches)):
+        for batch_index in range(batches):
             start = batch_index * BATCH_SIZE
             batch = texts[start : start + BATCH_SIZE]
             if not batch:
                 break
 
             started = time.time()
+            annotations = None
 
-            try:
-                annotations = label_batch(model, batch)
-            except Exception as error:  # noqa: BLE001
-                if is_quota_error(error):
-                    print(f"\nDaily quota exhausted after {batch_index} requests.")
-                    quota_hit = True
+            # Try the current teacher; on quota exhaustion roll forward through
+            # the chain. Only when every model is spent do we stop for the day.
+            while model_index < len(MODEL_CHAIN):
+                try:
+                    annotations = label_batch(api_key, batch, MODEL_CHAIN[model_index])
                     break
-                print(f"\nBatch at {start} failed ({error}); skipping")
-                time.sleep(5)
+                except QuotaExceeded:
+                    print(f"\n  {MODEL_CHAIN[model_index]} quota exhausted; "
+                          f"switching teacher", flush=True)
+                    model_index += 1
+                except Exception as error:  # noqa: BLE001
+                    print(f"\n  batch {batch_index} failed ({error}); skipping")
+                    time.sleep(5)
+                    break
+
+            if model_index >= len(MODEL_CHAIN):
+                print("\nEvery model in the chain is out of quota for today.")
+                quota_hit = True
+                break
+
+            if annotations is None:
                 continue
+
+            teacher = MODEL_CHAIN[model_index]
+            model_usage[teacher] = model_usage.get(teacher, 0) + 1
+
+            print(f"  {batch_index + 1}/{batches} requests, {written} rows, "
+                  f"teacher={teacher}", end="\r", flush=True)
 
             for annotation in annotations:
                 index = annotation.get("index")
@@ -236,6 +322,7 @@ def main():
                             "text": batch[index],
                             "labels": {label: bool(annotation.get(label)) for label in LABELS},
                             "teacher_confidence": annotation["confidence"],
+                            "teacher_model": teacher,
                         }
                     )
                     + "\n"
@@ -249,6 +336,8 @@ def main():
                 time.sleep(interval - elapsed)
 
     print(f"\nWrote {written} rows this run to {WEAK_PATH}")
+    if model_usage:
+        print("Teacher mix: " + ", ".join(f"{m}={n}" for m, n in model_usage.items()))
     print(f"Dropped {skipped_low_confidence} rows below confidence {args.min_confidence}")
 
     if quota_hit:

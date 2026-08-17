@@ -23,7 +23,7 @@ const verifyToken = async (token) => {
 
 // Call Gemini AI
 const callGeminiAI = async (entryText, moodScore) => {
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const systemPrompt = `You are a compassionate personal journal analyst. Analyze the journal entry and output ONLY a valid JSON object with: overall_analysis, detected_emotions, imposter_syndrome_detected, imposter_confidence, urgent_support_needed, key_insights, recommendations.`;
     

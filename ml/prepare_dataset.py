@@ -17,9 +17,12 @@ Usage:
 
 import hashlib
 import json
+import random
 
-import numpy as np
-
+# Standard library only. This is the script whose output decides whether the
+# label taxonomy is viable, so it must run before you commit disk to a
+# virtualenv -- finding out the labels are too thin AFTER installing 2.5 GB of
+# PyTorch is the wrong order.
 from config import (
     GOLD_PATH,
     LABELS,
@@ -80,24 +83,28 @@ def main():
     # Multi-label stratification has no clean exact solution; shuffling with a
     # fixed seed and then *verifying* the per-label frequencies match between
     # splits is honest and reproducible.
-    rng = np.random.default_rng(SEED)
-    indices = rng.permutation(len(weak))
-    split_at = int(len(weak) * (1 - VAL_FRACTION))
-    train = [weak[i] for i in indices[:split_at]]
-    val = [weak[i] for i in indices[split_at:]]
+    shuffled = list(weak)
+    random.Random(SEED).shuffle(shuffled)
+    split_at = int(len(shuffled) * (1 - VAL_FRACTION))
+    train = shuffled[:split_at]
+    val = shuffled[split_at:]
 
     write_split("train", train)
     write_split("val", val)
 
     # --- Imbalance report --------------------------------------------------
-    train_matrix = np.array([to_vector(row["labels"]) for row in train])
-    positives = train_matrix.sum(axis=0)
-    negatives = len(train) - positives
+    positives = [0] * len(LABELS)
+    for row in train:
+        for index, value in enumerate(to_vector(row["labels"])):
+            positives[index] += value
 
     # BCEWithLogitsLoss pos_weight = #negatives / #positives per label.
     # Clipped at 10 because an unclipped weight on a 2%-frequency label
     # destabilises training and floods the output with false positives.
-    pos_weight = np.clip(negatives / np.maximum(positives, 1), 1.0, 10.0)
+    pos_weight = [
+        min(10.0, max(1.0, (len(train) - count) / max(count, 1)))
+        for count in positives
+    ]
 
     print("\nTraining set label distribution:")
     print(f"{'label':<30} {'positives':>10} {'rate':>8} {'pos_weight':>11}")
@@ -105,6 +112,21 @@ def main():
         rate = positives[i] / max(len(train), 1)
         flag = "  <-- too few to evaluate reliably" if positives[i] < 200 else ""
         print(f"{label:<30} {positives[i]:>10} {rate:>7.1%} {pos_weight[i]:>11.2f}{flag}")
+
+    # Co-occurrence matters for the merge decision: two labels that almost
+    # always fire together are not really two labels, and collapsing them is
+    # what turns two unusable classes into one usable one.
+    print("\nLabel co-occurrence (how often row has both):")
+    for i in range(len(LABELS)):
+        for j in range(i + 1, len(LABELS)):
+            both = sum(
+                1 for row in train
+                if row["labels"].get(LABELS[i]) and row["labels"].get(LABELS[j])
+            )
+            if both:
+                smaller = max(min(positives[i], positives[j]), 1)
+                print(f"  {LABELS[i]} + {LABELS[j]}: {both} "
+                      f"({both / smaller:.0%} of the rarer label)")
 
     stats_path = PROCESSED_DIR / "label_stats.json"
     stats_path.write_text(
@@ -114,8 +136,8 @@ def main():
                 "train_size": len(train),
                 "val_size": len(val),
                 "gold_size": len(gold),
-                "positives": positives.tolist(),
-                "pos_weight": pos_weight.tolist(),
+                "positives": positives,
+                "pos_weight": pos_weight,
             },
             indent=2,
         )
