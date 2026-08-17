@@ -193,6 +193,42 @@ def extract_text(record, source):
     return text if MIN_CHARS <= len(text) <= MAX_CHARS else None
 
 
+def load_reddit(rng, seen):
+    """Read ml/data/raw/reddit_scan.jsonl if fetch_reddit.py has produced it.
+
+    Posts found by a targeted search go in the 'hot' pool regardless of whether
+    they match a marker regex: the search query already did that job, and better
+    -- it finds "everyone on my team is smarter than me", which no keyword list
+    covers.
+    """
+    path = RAW_DIR / "reddit_scan.jsonl"
+    if not path.exists():
+        print("  (no reddit_scan.jsonl -- run fetch_reddit.py for a much better corpus)")
+        return [], []
+
+    hot, cold = [], []
+    with path.open() as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            text = record["text"]
+            key = text.lower()[:200]
+            if key in seen:
+                continue
+            seen.add(key)
+
+            if record.get("retrieval") == "targeted" or MARKER_RE.search(text):
+                hot.append(text)
+            else:
+                cold.append(text)
+
+    print(f"  reddit_scan.jsonl: {len(hot)} targeted/marker, {len(cold)} untargeted")
+    rng.shuffle(hot)
+    rng.shuffle(cold)
+    return hot, cold
+
+
 def scan_all(source, rng, seen, rescan=False):
     """Page through an entire split and cache every usable text.
 
@@ -314,7 +350,15 @@ def main():
 
     print(f"Building a {args.limit}-text corpus")
 
+    # Reddit-sourced text, if fetch_reddit.py has run, is by far the highest
+    # yield source available -- it is searched for the phrasings people actually
+    # use, rather than sampled from a subreddit that happens to be adjacent.
+    # Everything it provides is used before falling back to the HF datasets.
+    reddit_hot, reddit_cold = load_reddit(rng, seen)
+
     hot, cold = scan_all(CAREER, rng, seen, rescan=args.rescan)
+    hot = reddit_hot + hot
+    cold = reddit_cold + cold
     baseline_rate = len(hot) / max(len(hot) + len(cold), 1)
 
     hot_target = int(args.limit * args.enrich_rate)
