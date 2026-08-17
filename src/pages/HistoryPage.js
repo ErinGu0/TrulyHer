@@ -13,19 +13,43 @@ export default function HistoryPage() {
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [semanticSearch, setSemanticSearch] = useState(false);
 
   useEffect(() => {
     loadEntries();
   }, []);
 
+  // Search by meaning, not by substring. "felt like a fraud in standup" should
+  // surface the entry that says "everyone else clearly knew what they were
+  // doing" even though they share no words. Debounced because each query costs
+  // one embedding call.
   useEffect(() => {
-    const filtered = entries.filter(entry => 
-      entry.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (entry.emotions || []).some(emotion => 
-        emotion.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-    setFilteredEntries(filtered);
+    if (!searchTerm.trim()) {
+      setFilteredEntries(entries);
+      setSemanticSearch(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setIsSearching(true);
+
+    const timer = setTimeout(async () => {
+      const results = await journalService.searchEntries(searchTerm);
+      if (cancelled) return;
+
+      setFilteredEntries(results);
+      // Similarity scores only come back from the vector search; their presence
+      // is how we know we are not looking at the substring fallback.
+      setSemanticSearch(results.some((entry) => entry.similarity !== undefined));
+      setIsSearching(false);
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setIsSearching(false);
+    };
   }, [entries, searchTerm]);
 
   const loadEntries = async () => {
@@ -71,7 +95,18 @@ export default function HistoryPage() {
       </div>
 
       {/* Search */}
-      <SearchBar value={searchTerm} onChange={setSearchTerm} />
+      <div className="space-y-2">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        {searchTerm.trim() && (
+          <p className="text-center text-xs text-gray-500">
+            {isSearching
+              ? "Searching…"
+              : semanticSearch
+                ? "Matched by meaning, not keywords"
+                : "Keyword match (semantic search unavailable offline)"}
+          </p>
+        )}
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
