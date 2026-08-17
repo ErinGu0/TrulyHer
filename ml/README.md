@@ -37,6 +37,9 @@ than someone writing 400 lines of tests so no reviewer finds a gap.
 ## Pipeline
 
 ```bash
+# Step 0 needs no dependencies at all -- standard library only
+python3 ml/fetch_corpus.py --limit 3000   # 0. build the raw corpus
+
 python -m venv ml/.venv && source ml/.venv/bin/activate
 pip install -r ml/requirements.txt
 export GEMINI_API_KEY=...
@@ -49,8 +52,73 @@ python ml/evaluate.py                  # 5. score against hand-labeled gold
 python ml/export_onnx.py               # 6. INT8 ONNX -> public/models/imposter-clf/
 ```
 
-Steps 1 and 3 need a GPU and an API budget; the rest run on a laptop in
+Step 1 needs an API budget and step 3 wants a GPU; the rest run on a laptop in
 under a minute.
+
+## What the corpus actually looks like (measured, not assumed)
+
+`fetch_corpus.py` has been run against the real sources. The findings matter
+before you spend anything on labeling:
+
+| | |
+| --- | --- |
+| r/careerguidance, full scan | 12,625 usable posts |
+| ...containing a high-precision imposter marker | **249 (2.0%)** |
+| default corpus composition | 3,000 texts, ~8% marker-hit after enrichment |
+
+**2% is the honest signal rate**, and it is the central problem with this data.
+r/careerguidance is an *advice* subreddit ("should I take this offer", "how do I
+negotiate"), not a *confession* subreddit. Imposter syndrome shows up, but
+sparsely.
+
+Two things follow.
+
+**The markers are a selection tool, never a label.** They are tuned for
+precision, not recall — an early loose version matched "figure out which
+master's program" and would have spent the teacher budget confirming negatives.
+Gemini still reads all 3,000 texts and will find the implicit cases no regex
+catches ("everyone on the panel clearly knew more than me"), so the true
+positive rate after labeling will be meaningfully higher than 2%.
+
+**You will not know if it is high enough until step 2.** `prepare_dataset.py`
+prints per-label positive counts and flags anything under 200 as too few to
+evaluate reliably. Read that table before training. If labels are thin:
+
+- **Merge labels.** Five is a design choice, not a requirement. Collapsing to
+  two or three (say `fear_of_exposure` + `discounting_praise` into one
+  `self-doubt` label) multiplies the positives per class and is far more
+  defensible than reporting an F1 computed on 30 examples.
+- **Find a better source.** Pushshift archives of r/ImposterSyndrome and
+  r/cscareerquestions are the right corpus; they need a bulk download rather
+  than the datasets-server API.
+- **Do not synthesise positives with an LLM and quietly mix them in.** If you
+  augment, say so, and keep the gold set 100% real text — otherwise you are
+  measuring how well the model reproduces Gemini's writing style.
+
+## Prior correction: why the thresholds will be wrong at first
+
+The corpus is **enriched**, not a random sample: marker-hit texts are
+oversampled roughly 4x so the teacher budget lands on informative examples.
+That is standard practice for a rare class, and it has a consequence people
+routinely miss.
+
+A model trained and calibrated on a corpus where the positive rate is 8% will
+output probabilities calibrated to *that* 8%. Real journal entries have a
+different base rate. Feed them in and the model will look over-confident across
+the board — not because it is broken, but because it is answering a question
+about a different population.
+
+The fix is a prior correction on the log-odds. For a label with training
+prevalence `π_train` and true prevalence `π_true`:
+
+```
+logit_corrected = logit_raw - ln(π_train / (1 - π_train)) + ln(π_true / (1 - π_true))
+```
+
+You need an estimate of `π_true`, which means hand-labeling a *random*
+(un-enriched) sample — `fetch_corpus.py --enrich-rate 0` produces exactly that.
+Until you do, treat the thresholds in `calibration.json` as relative rankings
+rather than absolute probabilities, and say so if you write the numbers up.
 
 ## The gold set is the whole ballgame
 
