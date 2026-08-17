@@ -52,8 +52,16 @@ python ml/evaluate.py                  # 5. score against hand-labeled gold
 python ml/export_onnx.py               # 6. INT8 ONNX -> public/models/imposter-clf/
 ```
 
-Step 1 needs an API budget and step 3 wants a GPU; the rest run on a laptop in
-under a minute.
+**Every step of this runs on free tiers.** Step 1 is sized for Gemini's free
+quota (25 texts/request, 10 req/min throttle → ~120 requests for 3,000 texts).
+If the daily cap hits, the run stops cleanly and resumes tomorrow without
+re-spending quota. Step 3 wants a GPU but Apple Silicon MPS or a free Colab T4
+both work; the rest run on a laptop in under a minute.
+
+One caveat that matters more than the money: **free-tier Gemini requests may be
+used by Google to improve their products.** That is fine for this pipeline — the
+corpus is public Reddit data — but it is not fine for real user journal entries.
+See the privacy section in the top-level README.
 
 ## What the corpus actually looks like (measured, not assumed)
 

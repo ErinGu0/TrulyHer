@@ -190,6 +190,12 @@ TrulyHer is designed as a personal, private journaling tool. Notes on privacy:
   text is still sent to Gemini for the written response, but the scoring of it is
   local. If you want the text to never leave the device at all, run with
   `GEMINI_API_KEY` unset — the local classifier and the journal keep working.
+- **Free-tier Gemini keys let Google use the request content to improve their
+  products** ([terms](https://ai.google.dev/gemini-api/terms)). Paid tiers do
+  not. For a journaling app this is the single most important line in this
+  section: on a free key, entries sent for the written response are covered by
+  that. The on-device classifier is unaffected — it never leaves the browser
+  either way. Disclose this, use a paid key, or run with `GEMINI_API_KEY` unset.
 - This app is not a substitute for professional mental health care. If you or someone else is in crisis, seek immediate professional help.
 
 ## Helpful resources (global)
