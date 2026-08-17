@@ -20,17 +20,59 @@ Built with empathy-first design: TrulyHer treats progress as a series of tiny wi
 - Daily reflection journal with stress and mood tracking
 - AI-generated, personalized encouragement and suggested micro-actions
 - Pattern detection that highlights signs of imposter syndrome with plain explanations
+- **Semantic memory** — each analysis is grounded in the entries you actually wrote before, retrieved by meaning rather than keyword
+- **Semantic search** over your own history: "times I felt like a fraud in code review" finds the entry that never used those words
+- **On-device imposter-syndrome classifier** — a fine-tuned model runs in your browser, so that classification never leaves your device
 - Visual insights and charts to show trends over time
 - Export personal insights into motivational poster (using html2canvas)
 
 
-## Tech stack 
+## Tech stack
 
-- React (frontend)
-- Tailwind CSS for styling
-- Node.js for local development
-- Uses Create React App (react-scripts) as configured in package.json
-- Optional AI integrations (Gemini API key used via environment variable)
+**Frontend** — React 19, Tailwind CSS, Recharts, Framer Motion, Create React App
+
+**Backend** — Vercel serverless functions (`api/`), Gemini for language generation
+
+**Memory** — Postgres + [pgvector](https://github.com/pgvector/pgvector), HNSW index over
+`text-embedding-004` vectors. See [db/README.md](db/README.md).
+
+**ML** — DistilBERT fine-tuned for multi-label imposter-syndrome detection,
+distilled from Gemini, temperature-calibrated, INT8-quantized to ONNX, and run
+in the browser via transformers.js / onnxruntime-web. See [ml/README.md](ml/README.md).
+
+
+## Architecture
+
+```
+browser                            serverless                       data
+───────                            ──────────                       ────
+imposterClassifier.js  ──signals──▶ /api/analyze  ──embed──▶  Gemini embeddings
+ (ONNX, INT8, local)                    │                            │
+                                        ├──retrieve top-k────▶  Postgres + pgvector
+                                        ├──generate──────────▶  Gemini
+                                        ├──reject repeat suggestions (cosine)
+                                        └──persist entry + vectors ──▶ Postgres
+
+journalService.js  ◀──── localStorage mirror (offline / no DATABASE_URL)
+```
+
+Three things are worth calling out:
+
+**The prompt no longer begs the model to stop repeating itself.** It used to —
+about fifty lines of it — because a stateless call has no idea what it said last
+week. The server now retrieves the nearest past entries, shows the model the
+advice already given, and rejects paraphrases by cosine distance. Prompt
+engineering was standing in for memory.
+
+**The classifier decides, the LLM writes.** `imposter_confidence` used to be a
+number Gemini invented, uncalibrated against anything. Now a fine-tuned model
+runs locally and its calibrated probability is what gets stored and shown;
+Gemini's job is the warm, specific language it is actually good at.
+
+**Everything degrades instead of breaking.** No `DATABASE_URL` → localStorage.
+No model bundle → server falls back to Gemini's judgment. Offline → entries
+still save. Losing something someone just wrote about a hard day is the worst
+failure this app can have.
 
 
 ## Getting started (local)
@@ -53,14 +95,35 @@ npm install
 # yarn
 ```
 
-Create a .env file in the project root (or copy the provided .env) and add your Gemini API key:
+Copy `.env.example` to `.env` and fill it in:
 
 ```bash
-REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_API_KEY=your_server_side_gemini_api_key_here
+cp .env.example .env
 ```
 
-For Vercel deployments, add both values in the project environment variables settings. The frontend uses REACT_APP_GEMINI_API_KEY for local UI checks, while the serverless Gemini endpoint uses GEMINI_API_KEY on the server side.
+```bash
+GEMINI_API_KEY=your_server_side_gemini_api_key_here
+DATABASE_URL=postgresql://...        # optional; enables semantic memory
+```
+
+> **No `REACT_APP_` secrets.** Create React App inlines every `REACT_APP_*`
+> variable into the public JS bundle, so a `REACT_APP_GEMINI_API_KEY` is
+> readable by anyone who opens the deployed site. All Gemini and database
+> traffic goes through the serverless functions in `api/`; the browser learns
+> what is configured from `GET /api/health`, which returns booleans only.
+
+For Vercel, set the same variables in the project environment settings.
+
+To enable the semantic memory layer, provision Postgres with pgvector and apply
+the migration — see [db/README.md](db/README.md):
+
+```bash
+psql "$DATABASE_URL" -f db/migrations/001_semantic_memory.sql
+```
+
+To build the on-device classifier, follow [ml/README.md](ml/README.md). Without
+it the app runs fine; the imposter-syndrome fields just fall back to Gemini's
+own (uncalibrated) judgment.
 
 Start the app:
 ```bash
@@ -113,8 +176,16 @@ If a task sounds too big, break it into smaller PRs — small changes are easier
 ## Privacy & Safety
 TrulyHer is designed as a personal, private journaling tool. Notes on privacy:
 
-- By default, data is stored locally in the browser/session (confirm exact behavior in the code before deploying).
-- If you add remote sync or server-side storage, make sure to disclose how data is stored and secured.
+- **With `DATABASE_URL` unset**, entries live only in this browser's localStorage.
+- **With it set**, entries and their embeddings are stored in your Postgres instance,
+  partitioned per device id, with row level security enabled. Read the
+  [caveat about the table owner bypassing RLS](db/README.md#schema-notes) before
+  treating that as a hard boundary — and note that the current `x-user-id` header
+  is a partition key, not authentication.
+- **The imposter-syndrome classification runs entirely in the browser.** The entry
+  text is still sent to Gemini for the written response, but the scoring of it is
+  local. If you want the text to never leave the device at all, run with
+  `GEMINI_API_KEY` unset — the local classifier and the journal keep working.
 - This app is not a substitute for professional mental health care. If you or someone else is in crisis, seek immediate professional help.
 
 ## Helpful resources (global)
@@ -124,7 +195,9 @@ TrulyHer is designed as a personal, private journaling tool. Notes on privacy:
 
 ## Troubleshooting
 - If the app doesn’t start, ensure Node and npm versions are compatible and run npm install again.
-- If AI calls fail, check your REACT_APP_GEMINI_API_KEY and network connectivity.
+- If AI calls fail, check `GEMINI_API_KEY` on the server and hit `/api/health` to see what the server thinks is configured.
+- If semantic memory seems off, confirm `DATABASE_URL` points at a **pooled** connection string and that the migration ran (`\dx` in psql should list `vector`).
+- If the local classifier never loads, check the browser console — it logs once and then defers to the server. Most often `public/models/imposter-clf/` is missing; run `python ml/export_onnx.py`.
 - For build errors, try removing node_modules and reinstalling:
 
 ``` bash

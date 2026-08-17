@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Smile, Meh, Frown, Loader2, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
 export default function MoodIndicator({ text, onMoodScoreChange }) {
   const [mood, setMood] = useState(null);
@@ -14,16 +11,8 @@ export default function MoodIndicator({ text, onMoodScoreChange }) {
   const analyzeMoodWithAI = useCallback(async (textToAnalyze) => {
     if (!textToAnalyze || textToAnalyze.trim().length < 15) return;
 
-    if (!process.env.REACT_APP_GEMINI_API_KEY) {
-      setMood('neutral');
-      setMoodScore(5);
-      onMoodScoreChange?.(5);
-      setIsAnalyzing(false);
-      return;
-    }
-    
-    console.log("🔍 Analyzing text:", textToAnalyze); // DEBUG
-    
+    // Mood scoring runs entirely through /api/gemini; if the server has no key
+    // the request fails and the catch below falls back to a neutral score.
     setIsAnalyzing(true);
     try {
       const prompt = `

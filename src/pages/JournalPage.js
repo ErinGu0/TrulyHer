@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { journalService } from "../services/journalService";
 import { geminiAnalysisService } from "../services/geminiAnalysisService";
+import { getCapabilities } from "../services/apiCapabilities";
+import { warmUp as warmUpClassifier } from "../services/imposterClassifier";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardHeader } from "../components/ui/Card";
 import { Textarea } from "../components/ui/Textarea";
@@ -13,6 +15,8 @@ import EntrySubmittedAnimation from "../components/journal/EntrySubmittedAnimati
 import UrgentSupport from "../components/journal/UrgentSupport";
 import DailyTask from "../components/journal/DailyTask";
 import DetailedAnalysis from "../components/journal/DetailedAnalysis";
+import MemoryRecall from "../components/journal/MemoryRecall";
+import ImposterSignals from "../components/journal/ImposterSignals";
 
 export default function JournalPage() {
   const [content, setContent] = useState("");
@@ -23,6 +27,7 @@ export default function JournalPage() {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [showSubmittedAnimation, setShowSubmittedAnimation] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [memory, setMemory] = useState(null);
   const [aiUnavailable, setAiUnavailable] = useState(false);
   
   const moodScoreRef = useRef(5);
@@ -41,7 +46,17 @@ export default function JournalPage() {
   };
 
   useEffect(() => {
-    setAiUnavailable(!process.env.REACT_APP_GEMINI_API_KEY);
+    let cancelled = false;
+    getCapabilities().then((capabilities) => {
+      if (!cancelled) setAiUnavailable(!capabilities.ai);
+    });
+
+    // Start fetching the on-device classifier now, while the page is being
+    // read, so the ~67MB first load overlaps with someone writing rather than
+    // with them waiting on a spinner afterwards.
+    warmUpClassifier();
+
+    return () => { cancelled = true; };
   }, []);
 
   const analyzeAndSave = async () => {
@@ -51,14 +66,14 @@ export default function JournalPage() {
     console.log('Starting AI analysis with mood score:', moodScoreRef.current);
     
     try {
-      const analysis = await geminiAnalysisService.analyzeJournalEntry(
-        content, 
+      const { analysis, memory, entry } = await geminiAnalysisService.analyzeJournalEntry(
+        content,
         moodScoreRef.current,
-        []
+        audioAnalysis
       );
 
-      console.log('AI analysis completed (Structured):', analysis);
       setAiAnalysis(analysis);
+      setMemory(memory);
 
       let criticalAlerts = [];
       if (analysis.imposter_syndrome_detected) {
@@ -76,13 +91,18 @@ export default function JournalPage() {
         critical_alerts: criticalAlerts,
         // Don't duplicate recommendations in suggested_task
         suggested_task: null,
-        entry_date: new Date().toISOString(),
+        entry_date: entry?.entry_date || new Date().toISOString(),
         audio_analysis: audioAnalysis,
-        imposter_syndrome_detected: analysis.imposter_syndrome_detected
+        imposter_syndrome_detected: analysis.imposter_syndrome_detected,
+        imposter_confidence: analysis.imposter_confidence,
+        imposter_source: analysis.imposter_source || null
       };
 
-      const savedEntry = await journalService.createEntry(newEntry);
-      
+      // /api/analyze already persisted the entry with its embedding when the
+      // memory layer is on; passing its id keeps the local mirror in sync
+      // instead of creating a duplicate row.
+      const savedEntry = await journalService.createEntry(newEntry, entry?.id);
+
       setLastEntry(savedEntry);
       setShowSubmittedAnimation(true);
       setContent("");
@@ -102,6 +122,7 @@ export default function JournalPage() {
     setLastEntry(null);
     setShowSubmittedAnimation(false);
     setAiAnalysis(null);
+    setMemory(null);
     setMoodScore(5);
     moodScoreRef.current = 5;
   };
@@ -157,6 +178,24 @@ export default function JournalPage() {
             </motion.div>
           )}
           
+          {/* What the analysis was grounded in */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <MemoryRecall memory={memory} continuityNote={aiAnalysis?.continuity_note} />
+          </motion.div>
+
+          {/* On-device classifier breakdown */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.38 }}
+          >
+            <ImposterSignals analysis={aiAnalysis} />
+          </motion.div>
+
           {/* Detailed Analysis - includes recommendations */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

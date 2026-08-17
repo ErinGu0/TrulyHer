@@ -4,6 +4,7 @@ import { Heart, Star, TrendingDown, Sparkles, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { journalService } from "../../services/journalService";
 import { geminiAnalysisService } from "../../services/geminiAnalysisService";
+import { getCapabilities } from "../../services/apiCapabilities";
 
 export default function PersonalInsights() {
   const [insights, setInsights] = useState(null);
@@ -16,7 +17,8 @@ export default function PersonalInsights() {
   const generatePersonalizedInsights = async () => {
     setIsLoading(true);
 
-    if (!process.env.REACT_APP_GEMINI_API_KEY) {
+    const { ai } = await getCapabilities();
+    if (!ai) {
       setInsights({
         encouragingMessage: "Your journal is working locally. Add a Gemini API key to unlock AI-generated insights.",
         strengths: [
