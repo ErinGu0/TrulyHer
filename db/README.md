@@ -29,15 +29,32 @@ itself. Retrieval replaces those instructions with evidence:
    - Neon: the host containing `-pooler`
    - Supabase: port `6543`, not `5432`
 
-3. **Apply the migration:**
+3. **Put it in `.env`** as `DATABASE_URL`, and in the Vercel project settings
+   too. With it unset, every endpoint degrades to the localStorage path rather
+   than erroring — the app still works, just without memory.
+
+4. **Apply the migration and verify it:**
+
+   ```bash
+   npm run db:migrate
+   npm run db:check
+   ```
+
+   `db:migrate` runs every file in `db/migrations/` in order, each inside a
+   transaction, so a failure leaves the database untouched rather than
+   half-migrated. The migrations are idempotent — re-running is safe.
+
+   `db:check` goes further than "did the SQL run": it inserts two throwaway rows
+   with known vectors, confirms nearest-neighbour search ranks the closer one
+   first, and rolls back. A schema that exists but returns results in the wrong
+   order is the failure worth catching, and only a round trip catches it.
+
+   Both use the `pg` package the app already depends on, so `psql` is not
+   required. If you do have `psql`, the equivalent is:
 
    ```bash
    psql "$DATABASE_URL" -f db/migrations/001_semantic_memory.sql
    ```
-
-4. **Set `DATABASE_URL`** in `.env` locally and in the Vercel project settings.
-   With it unset, every endpoint degrades to the localStorage path rather than
-   erroring — the app still works, just without memory.
 
 ## Schema notes
 

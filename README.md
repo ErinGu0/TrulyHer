@@ -114,12 +114,16 @@ DATABASE_URL=postgresql://...        # optional; enables semantic memory
 
 For Vercel, set the same variables in the project environment settings.
 
-To enable the semantic memory layer, provision Postgres with pgvector and apply
-the migration — see [db/README.md](db/README.md):
+To enable the semantic memory layer, provision Postgres with pgvector (Neon and
+Supabase both ship it free), put the **pooled** connection string in
+`DATABASE_URL`, then — see [db/README.md](db/README.md):
 
 ```bash
-psql "$DATABASE_URL" -f db/migrations/001_semantic_memory.sql
+npm run db:migrate   # applies db/migrations/*.sql, each in a transaction
+npm run db:check     # verifies structure AND does a real vector-search round trip
 ```
+
+No `psql` needed; both use the `pg` package the app already depends on.
 
 To build the on-device classifier, follow [ml/README.md](ml/README.md). Without
 it the app runs fine; the imposter-syndrome fields just fall back to Gemini's

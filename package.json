@@ -29,6 +29,8 @@
   },
   "scripts": {
     "copy:ort": "node scripts/copy-ort-runtime.js",
+    "db:migrate": "node --env-file=.env scripts/migrate.js",
+    "db:check": "node --env-file=.env scripts/db-check.js",
     "prestart": "npm run copy:ort",
     "prebuild": "npm run copy:ort",
     "start": "react-scripts start",
