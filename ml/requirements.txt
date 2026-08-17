@@ -1,0 +1,20 @@
+# Python 3.10+
+# Install:  python -m venv ml/.venv && source ml/.venv/bin/activate && pip install -r ml/requirements.txt
+
+torch>=2.2
+transformers>=4.44
+datasets>=2.20
+accelerate>=0.33
+
+scikit-learn>=1.5
+numpy>=1.26
+matplotlib>=3.8
+tqdm>=4.66
+
+# ONNX export + INT8 quantization for the browser bundle
+optimum[onnxruntime]>=1.21
+onnx>=1.16
+onnxruntime>=1.18
+
+# Teacher model for weak labeling
+google-generativeai>=0.8
