@@ -4,19 +4,33 @@
 
 import { CognitoUserPool, CognitoUser, AuthenticationDetails, CognitoUserAttribute } from 'amazon-cognito-identity-js';
 
-const poolData = {
-    UserPoolId: process.env.REACT_APP_COGNITO_USER_POOL_ID,
-    ClientId: process.env.REACT_APP_COGNITO_CLIENT_ID
-};
+// These two are IDs, not secrets -- Cognito pool and client ids are public by
+// design and appear in every browser request, so REACT_APP_ is correct here.
+const POOL_ID = process.env.REACT_APP_COGNITO_USER_POOL_ID;
+const CLIENT_ID = process.env.REACT_APP_COGNITO_CLIENT_ID;
 
-const userPool = new CognitoUserPool(poolData);
+const isConfigured = () => Boolean(POOL_ID && CLIENT_ID);
+
+// Built lazily. Constructing a CognitoUserPool with undefined ids throws
+// "Both UserPoolId and ClientId are required" at MODULE LOAD, which takes down
+// the entire app before React renders anything -- not just the login screen.
+let cachedPool = null;
+const getPool = () => {
+    if (!isConfigured()) {
+        throw new Error('Cognito is not configured');
+    }
+    if (!cachedPool) {
+        cachedPool = new CognitoUserPool({ UserPoolId: POOL_ID, ClientId: CLIENT_ID });
+    }
+    return cachedPool;
+};
 
 // Confirm signup with verification code
 const confirmSignUp = (email, code) => {
     return new Promise((resolve, reject) => {
         const cognitoUser = new CognitoUser({
             Username: email,
-            Pool: userPool
+            Pool: getPool()
         });
 
         cognitoUser.confirmRegistration(code, true, (err, result) => {
@@ -43,7 +57,7 @@ const signUp = (email, password, name) => {
             })
         ];
 
-        userPool.signUp(email, password, attributeList, null, (err, result) => {
+        getPool().signUp(email, password, attributeList, null, (err, result) => {
             if (err) {
                 reject(err);
                 return;
@@ -63,7 +77,7 @@ const signIn = (email, password) => {
 
         const cognitoUser = new CognitoUser({
             Username: email,
-            Pool: userPool
+            Pool: getPool()
         });
 
         cognitoUser.authenticateUser(authenticationDetails, {
@@ -85,7 +99,7 @@ const signIn = (email, password) => {
 // Get current user
 const getCurrentUser = () => {
     return new Promise((resolve, reject) => {
-        const cognitoUser = userPool.getCurrentUser();
+        const cognitoUser = getPool().getCurrentUser();
         
         if (!cognitoUser) {
             reject(new Error('No user found'));
@@ -125,13 +139,15 @@ const getCurrentUser = () => {
 
 // Sign out
 const signOut = () => {
-    const cognitoUser = userPool.getCurrentUser();
+    if (!isConfigured()) return;
+    const cognitoUser = getPool().getCurrentUser();
     if (cognitoUser) {
         cognitoUser.signOut();
     }
 };
 
 export const authService = {
+    isConfigured,
     signUp,
     confirmSignUp,
     signIn,

@@ -16,10 +16,16 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
     const savedUser = localStorage.getItem('trulyher_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
+    } else if (!authService.isConfigured()) {
+      // No Cognito pool configured, so there is no sign-in to complete and the
+      // login screen would be a dead end. Fall back to a local session, matching
+      // how the rest of the app degrades: entries still save, the on-device
+      // classifier still runs, and journalService's device id already provides
+      // the per-user partition the API needs.
+      setUser({ name: 'You', local: true });
     }
     setLoading(false);
   }, []);
