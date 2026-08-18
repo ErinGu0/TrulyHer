@@ -286,9 +286,12 @@ def main():
                           f"switching teacher", flush=True)
                     model_index += 1
                 except Exception as error:  # noqa: BLE001
-                    print(f"\n  batch {batch_index} failed ({error}); skipping")
-                    time.sleep(5)
-                    break
+                    # Advance the teacher on persistent failure too. A model
+                    # returning 503 "high demand" stays that way for hours, and
+                    # retrying only it would stall the entire run.
+                    print(f"\n  {MODEL_CHAIN[model_index]} failing ({error}); "
+                          f"switching teacher", flush=True)
+                    model_index += 1
 
             if model_index >= len(MODEL_CHAIN):
                 print("\nEvery model in the chain is out of quota for today.")
