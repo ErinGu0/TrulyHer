@@ -27,6 +27,7 @@ from config import (
     GOLD_PATH,
     LABELS,
     PROCESSED_DIR,
+    RAW_DIR,
     SEED,
     VAL_FRACTION,
     WEAK_PATH,
@@ -51,13 +52,40 @@ def to_vector(labels):
 
 
 def main():
-    weak = read_jsonl(WEAK_PATH)
+    synthetic = read_jsonl(RAW_DIR / "synthetic.jsonl")
+    real = read_jsonl(WEAK_PATH)
     gold = read_jsonl(GOLD_PATH)
 
-    if not weak:
-        raise SystemExit(f"No weak labels at {WEAK_PATH}. Run label_data.py first.")
+    if not synthetic and not real:
+        raise SystemExit(
+            "No labeled data. Run synthesize.py (and/or label_data.py) first."
+        )
 
-    print(f"Loaded {len(weak)} weakly-labeled rows and {len(gold)} gold rows")
+    print(f"Loaded {len(synthetic)} synthetic rows, {len(real)} real rows, "
+          f"{len(gold)} gold rows")
+
+    # --- Why the real rows do NOT go into training -------------------------
+    # The synthetic set is register-balanced: positives and negatives are
+    # written the same way, so the model cannot separate them on style.
+    #
+    # The real rows are Reddit/forum prose and are ~98% negative. Mixing them
+    # in would hand the model a shortcut -- "reads like a forum post" predicts
+    # negative -- and it would score beautifully in validation while learning
+    # nothing about imposter syndrome. That is the exact failure the synthetic
+    # design was built to avoid, and it would be self-defeating to reintroduce
+    # it here.
+    #
+    # They are far more useful as an out-of-domain check: a model trained on
+    # journal register and evaluated on forum prose tells you whether it
+    # learned the concept or the costume.
+    weak = synthetic
+    if real:
+        ood_path = PROCESSED_DIR / "ood.jsonl"
+        with ood_path.open("w") as out:
+            for row in real:
+                out.write(json.dumps(
+                    {"text": row["text"], "labels": to_vector(row["labels"])}) + "\n")
+        print(f"Held out {len(real)} real-text rows as an out-of-domain set -> {ood_path}")
 
     # --- Leakage guard -----------------------------------------------------
     gold_hashes = {fingerprint(row["text"]) for row in gold}

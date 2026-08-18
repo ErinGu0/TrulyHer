@@ -280,7 +280,19 @@ def main():
     parser.add_argument("--positive-fraction", type=float, default=0.55)
     parser.add_argument("--rpm", type=float, default=DEFAULT_RPM)
     parser.add_argument("--restart", action="store_true")
+    parser.add_argument(
+        "--only", default=None,
+        help="top up a single thin label: restrict positive combos to ones "
+             "containing it (e.g. --only overworking_to_compensate)"
+    )
     args = parser.parse_args()
+
+    combos = POSITIVE_COMBOS
+    if args.only:
+        if args.only not in LABELS:
+            raise SystemExit(f"--only must be one of: {', '.join(LABELS)}")
+        combos = [c for c in POSITIVE_COMBOS if args.only in c]
+        print(f"Topping up '{args.only}' using {len(combos)} combos")
 
     api_key = load_api_key()
     if not api_key:
@@ -320,12 +332,17 @@ def main():
             #
             # A fractional accumulator (Bresenham) gives P,N,P,N,P,P,N,... and
             # stays near the target ratio at any stopping point.
-            positive_credit += args.positive_fraction
-            want_positive = positive_credit >= 1.0
-            if want_positive:
-                positive_credit -= 1.0
+            if args.only:
+                # Topping up a thin label: negatives are already plentiful, so
+                # spend the whole run on the label that needs rows.
+                want_positive = True
+            else:
+                positive_credit += args.positive_fraction
+                want_positive = positive_credit >= 1.0
+                if want_positive:
+                    positive_credit -= 1.0
 
-            combo = rng.choice(POSITIVE_COMBOS) if want_positive else []
+            combo = rng.choice(combos) if want_positive else []
 
             started = time.time()
             entries = None
