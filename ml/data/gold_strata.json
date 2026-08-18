@@ -1,7 +1,7 @@
 {
-  "marker_population": 205,
-  "random_population": 1415,
-  "marker_frequency": 0.12654,
-  "random_frequency": 0.87346,
+  "marker_population": 203,
+  "random_population": 1414,
+  "marker_frequency": 0.12554,
+  "random_frequency": 0.87446,
   "note": "Reweight per-stratum metrics by these frequencies to estimate real-world performance. Enriched metrics alone overstate it."
 }
