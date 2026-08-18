@@ -130,25 +130,29 @@ def build_queue(target):
     return queue
 
 
-def render(text, index, total, selected, counts):
+# Short names for the status line. The full descriptions live behind `?`.
+SHORT = ["luck", "fear", "praise", "overwork", "compare"]
+
+
+def render(text, index, total, counts):
+    """One screen, one decision, one keystroke sequence.
+
+    The previous version redrew the whole screen after every single toggle, so
+    labeling two patterns cost three round trips. Reading the entry is the only
+    part that should take time; the input should not.
+    """
     os.system("cls" if os.name == "nt" else "clear")
     width = min(shutil.get_terminal_size((100, 30)).columns, 100)
 
-    print("=" * width)
-    print(f" gold set  {index}/{total} labeled".ljust(width - 20)
-          + f"positives: {sum(counts.values())}")
-    print("=" * width)
-    print()
-    for line in textwrap.wrap(text, width=width - 4)[:22]:
-        print(f"  {line}")
-    print()
+    tally = "  ".join(f"{SHORT[i]} {counts.get(label, 0)}"
+                      for i, label in enumerate(LABELS))
+    print(f"{index}/{total}   {tally}")
     print("-" * width)
-
-    for key, label in KEYS.items():
-        mark = "X" if label in selected else " "
-        print(f"  [{mark}] {key}. {label:<28} (labeled so far: {counts.get(label, 0)})")
+    for line in textwrap.wrap(text, width=width - 2):
+        print(line)
     print("-" * width)
-    print("  1-5 toggle | enter save | n all-negative | s skip | u undo | ? help | q quit")
+    print("  " + "  ".join(f"{i + 1}={SHORT[i]}" for i in range(len(LABELS))))
+    print("  type digits then enter (e.g. 25) | enter=none | s=skip | u=undo | ?=help | q=quit")
 
 
 def main():
@@ -176,61 +180,63 @@ def main():
     labeled = len(existing)
     saved_this_session = []
 
-    for text, stratum in queue:
-        selected = set()
+    total = labeled + len(queue)
 
+    for text, stratum in queue:
         while True:
-            render(text, labeled, labeled + len(queue), selected, counts)
+            render(text, labeled, total, counts)
             choice = input("> ").strip().lower()
 
-            if choice in KEYS:
-                label = KEYS[choice]
-                selected.symmetric_difference_update({label})
-            elif choice == "?":
+            if choice == "?":
                 print("\n" + "\n".join(
-                    f"  {k}: {v}" for k, v in LABEL_DESCRIPTIONS.items()))
+                    f"  {i + 1}. {label}\n     {LABEL_DESCRIPTIONS[label]}"
+                    for i, label in enumerate(LABELS)))
                 input("\nenter to continue…")
-            elif choice == "s":
-                break
-            elif choice == "u":
-                if saved_this_session:
-                    removed = saved_this_session.pop()
-                    rows = load_jsonl(GOLD_PATH)[:-1]
-                    with GOLD_PATH.open("w") as handle:
-                        for row in rows:
-                            handle.write(json.dumps(row) + "\n")
-                    for label in LABELS:
-                        if removed["labels"][label]:
-                            counts[label] -= 1
-                    labeled -= 1
-                    print("Removed the last saved row.")
-                    input("enter to continue…")
-                else:
-                    print("Nothing to undo in this session.")
-                    input("enter to continue…")
-            elif choice in ("", "n", "q"):
-                if choice == "n":
-                    selected = set()
-
-                if choice != "q" or selected or choice == "":
-                    row = {
-                        "text": text,
-                        "labels": {label: (label in selected) for label in LABELS},
-                        "stratum": stratum,
-                    }
-                    with GOLD_PATH.open("a") as handle:
-                        handle.write(json.dumps(row) + "\n")
-                    saved_this_session.append(row)
-                    for label in selected:
-                        counts[label] += 1
-                    labeled += 1
-
-                if choice == "q":
-                    finish(labeled, counts)
-                    return
-                break
-            else:
                 continue
+
+            if choice == "q":
+                finish(labeled, counts)
+                return
+
+            if choice == "s":
+                break
+
+            if choice == "u":
+                if not saved_this_session:
+                    input("Nothing to undo in this session. enter…")
+                    continue
+                removed = saved_this_session.pop()
+                rows = load_jsonl(GOLD_PATH)[:-1]
+                with GOLD_PATH.open("w") as handle:
+                    for row in rows:
+                        handle.write(json.dumps(row) + "\n")
+                for label in LABELS:
+                    if removed["labels"][label]:
+                        counts[label] -= 1
+                labeled -= 1
+                continue
+
+            # Digits (or empty) is the common path: set every named label and
+            # save in a single keystroke sequence. Empty means all-negative,
+            # which is the most frequent answer and so costs the fewest keys.
+            if choice and not choice.isdigit():
+                continue
+            picked = {KEYS[c] for c in choice if c in KEYS}
+            if choice and not picked:
+                continue
+
+            row = {
+                "text": text,
+                "labels": {label: (label in picked) for label in LABELS},
+                "stratum": stratum,
+            }
+            with GOLD_PATH.open("a") as handle:
+                handle.write(json.dumps(row) + "\n")
+            saved_this_session.append(row)
+            for label in picked:
+                counts[label] += 1
+            labeled += 1
+            break
 
     finish(labeled, counts)
 
