@@ -22,11 +22,12 @@ involved, no password grant.
 
 Setup (about 10 minutes, free):
     1. https://www.reddit.com/prefs/apps  ->  "create another app..."
-    2. Type: script.  Redirect URI: http://localhost:8080  (required, unused)
-    3. Copy the client id (under the app name) and the secret
+    2. Type: any of script / web app / installed app.
+           Redirect URI: http://localhost:8080  (required, unused)
+    3. Copy the client id -- the short string UNDER the app name, not the name
     4. Add to .env:
            REDDIT_CLIENT_ID=...
-           REDDIT_CLIENT_SECRET=...
+           REDDIT_CLIENT_SECRET=...   # omit entirely for an installed app
 
 Usage:
     python3 ml/fetch_reddit.py
@@ -91,13 +92,14 @@ JUNK = {"[removed]", "[deleted]", "", "."}
 
 
 def load_credentials():
-    client_id = os.environ.get("REDDIT_CLIENT_ID")
-    secret = os.environ.get("REDDIT_CLIENT_SECRET")
-    if client_id and secret:
-        return client_id, secret
+    """Environment wins, .env fills the gaps.
 
-    env_path = PROJECT_ROOT / ".env"
+    Resolved per-key rather than all-or-nothing: an installed app legitimately
+    has no secret, so requiring both before reading .env would send anyone with
+    an installed app down the "credentials not found" path for no reason.
+    """
     values = {}
+    env_path = PROJECT_ROOT / ".env"
     if env_path.exists():
         for line in env_path.read_text().splitlines():
             line = line.strip()
@@ -105,17 +107,45 @@ def load_credentials():
                 key, value = line.split("=", 1)
                 values[key.strip()] = value.strip()
 
-    return values.get("REDDIT_CLIENT_ID"), values.get("REDDIT_CLIENT_SECRET")
+    client_id = os.environ.get("REDDIT_CLIENT_ID") or values.get("REDDIT_CLIENT_ID")
+    secret = os.environ.get("REDDIT_CLIENT_SECRET") or values.get("REDDIT_CLIENT_SECRET")
+
+    # An empty placeholder line in .env should read as "no secret", not as a
+    # secret that happens to be the empty string.
+    return (client_id or None), (secret or None)
 
 
 def get_token(client_id, secret):
-    """Application-only OAuth: read-only, tied to the app rather than a user."""
-    credentials = base64.b64encode(f"{client_id}:{secret}".encode()).decode()
+    """Application-only OAuth: read-only, tied to the app rather than a user.
+
+    Two flavours, picked by whether a secret exists:
+
+      script / web app   confidential clients -> `client_credentials`
+      installed app      public client, NO secret -> `installed_client` + device_id
+
+    Supporting both matters because the three app types fail in different ways
+    during setup, and an installed app issues no secret at all -- which removes
+    the most common place people get stuck.
+    """
+    if secret:
+        grant = {"grant_type": "client_credentials"}
+        auth = base64.b64encode(f"{client_id}:{secret}".encode()).decode()
+        kind = "confidential (script / web app)"
+    else:
+        grant = {
+            "grant_type": "https://oauth.reddit.com/grants/installed_client",
+            # Reddit's documented opt-out value; we are not tracking anything.
+            "device_id": "DO_NOT_TRACK_THIS_DEVICE",
+        }
+        # Public clients still send Basic auth, with an empty password.
+        auth = base64.b64encode(f"{client_id}:".encode()).decode()
+        kind = "public (installed app, no secret)"
+
     request = urllib.request.Request(
         TOKEN_URL,
-        data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode(),
+        data=urllib.parse.urlencode(grant).encode(),
         headers={
-            "Authorization": f"Basic {credentials}",
+            "Authorization": f"Basic {auth}",
             "User-Agent": USER_AGENT,
             "Content-Type": "application/x-www-form-urlencoded",
         },
@@ -123,14 +153,18 @@ def get_token(client_id, secret):
 
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)["access_token"]
+            token = json.load(response)["access_token"]
+        print(f"Authenticated: {kind}")
+        return token
     except urllib.error.HTTPError as error:
         body = error.read().decode()[:200]
         if error.code == 401:
             raise SystemExit(
-                "Reddit rejected the credentials (401).\n"
-                "Check that the app type is 'script' and that the client id is the\n"
-                "short string UNDER the app name, not the app name itself."
+                f"Reddit rejected the credentials (401). Tried the {kind} flow.\n\n"
+                "Most common cause: the client id is the short string UNDERNEATH the\n"
+                "app name on https://old.reddit.com/prefs/apps/ -- not the app name.\n\n"
+                "If you created an INSTALLED app, leave REDDIT_CLIENT_SECRET empty or\n"
+                "omit it entirely; sending a secret it never issued causes this error."
             )
         raise SystemExit(f"Token request failed: {error.code} {body}")
 
@@ -187,14 +221,15 @@ def main():
     args = parser.parse_args()
 
     client_id, secret = load_credentials()
-    if not client_id or not secret:
+    if not client_id:
         raise SystemExit(
-            "REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET not found in the environment "
-            "or .env.\nSee this file's docstring for the 10-minute setup."
+            "REDDIT_CLIENT_ID not found in the environment or .env.\n"
+            "See this file's docstring for the setup (any of the three app types works)."
         )
 
+    # secret is optional: installed apps do not have one.
     token = get_token(client_id, secret)
-    print("Authenticated with Reddit (application-only, read-only)\n")
+    print()
 
     interval = 60.0 / REQUESTS_PER_MINUTE
     collected = {}
