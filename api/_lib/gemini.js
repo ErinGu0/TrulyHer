@@ -6,10 +6,30 @@
 // identical.
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-// Stable, not the -preview- alias the app shipped with. Google's docs state
-// preview models "typically have billing enabled" and are retired on two weeks'
-// notice -- both bad properties for the default path of a free-tier project.
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+
+// Free-tier quotas are PER MODEL and small -- gemini-3.7-flash allows 20
+// generate_content requests per day. A single pinned model therefore means the
+// entire app returns 429 for the rest of the day once that runs out, which is
+// how this was found: the journal page died after an unrelated batch job.
+//
+// Falling through a chain keeps the app alive on a free key. Later models are
+// older or lighter, so answers degrade gracefully rather than vanishing.
+// GEMINI_MODEL still overrides, and pins to a single model when set.
+const MODEL_CHAIN = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL]
+  : [
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite'
+    ];
+
+// Remembered per warm lambda instance so we stop re-paying the latency of a
+// model we already know is exhausted. Cleared when the instance recycles, which
+// is roughly the granularity we want -- quotas reset daily, instances do not
+// live that long.
+const exhausted = new Set();
 
 export function isAiConfigured() {
   return Boolean(process.env.GEMINI_API_KEY);
@@ -35,22 +55,57 @@ export async function generate({ prompt, systemPrompt = '', responseSchema = nul
     };
   }
 
-  const response = await fetch(`${BASE_URL}/${MODEL}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  const candidates = MODEL_CHAIN.filter((model) => !exhausted.has(model));
+  // Every model looked exhausted; try the whole chain again rather than failing
+  // outright, since the set may be stale.
+  const attempts = candidates.length ? candidates : MODEL_CHAIN;
 
-  if (!response.ok) {
-    throw new Error(`Gemini request failed: ${response.status} ${await response.text()}`);
+  let lastError = null;
+
+  for (const model of attempts) {
+    let response;
+    try {
+      response = await fetch(`${BASE_URL}/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+
+    if (response.status === 429) {
+      exhausted.add(model);
+      lastError = new Error(`${model}: daily quota exhausted`);
+      continue;
+    }
+
+    // 503 "high demand" is transient but can persist for hours; treat it the
+    // same as exhaustion for routing purposes and move on.
+    if (response.status >= 500) {
+      lastError = new Error(`${model}: ${response.status}`);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Gemini request failed: ${response.status} ${await response.text()}`);
+    }
+
+    const rawText = (await response.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) {
+      lastError = new Error(`${model}: empty response`);
+      continue;
+    }
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return rawText;
+    }
   }
 
-  const rawText = (await response.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error('Gemini returned an empty response');
-
-  try {
-    return JSON.parse(rawText);
-  } catch {
-    return rawText;
-  }
+  throw new Error(
+    `All Gemini models unavailable (${attempts.length} tried). Last: ${lastError?.message}`
+  );
 }
