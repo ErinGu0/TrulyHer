@@ -134,11 +134,16 @@ def plot_reliability(raw, calibrated, labels, path):
     edges = np.linspace(0, 1, N_BINS + 1)
     centers = (edges[:-1] + edges[1:]) / 2
 
+    # Flatten labels to match the flattened probabilities. Pooling across labels
+    # is intentional -- per-label bins are too sparse at this dataset size to
+    # read anything from -- but both arrays have to be raveled, not just one.
+    flat_labels = labels.ravel()
+
     def bin_accuracy(probabilities):
         accuracies = []
         for lower, upper in zip(edges[:-1], edges[1:]):
             in_bin = (probabilities > lower) & (probabilities <= upper)
-            accuracies.append(labels[in_bin].mean() if in_bin.sum() else np.nan)
+            accuracies.append(flat_labels[in_bin].mean() if in_bin.sum() else np.nan)
         return accuracies
 
     plt.figure(figsize=(5.5, 5.5))

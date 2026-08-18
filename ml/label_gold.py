@@ -61,16 +61,27 @@ def fingerprint(text):
 
 
 def build_queue(target):
-    """Alternate strata so positives show up steadily rather than in one clump."""
+    """Alternate strata so positives show up steadily rather than in one clump.
+
+    Draws from synthetic.jsonl, NOT the Reddit corpora. The model is trained on
+    journal register, so a gold set of forum prose would measure domain transfer
+    rather than accuracy -- two different questions, and the transfer one is
+    already answered separately by processed/ood.jsonl.
+
+    Labeling text whose labels are known by construction is not circular, which
+    is the obvious objection. The generator was ASKED for a pattern; whether it
+    actually expressed one is an open question, and a human reading it is the
+    only real way to find out. Disagreements you find here are generation
+    defects, and they are exactly what the metric needs to account for.
+    """
     texts = []
-    for name in ("corpus.jsonl", "career_scan.jsonl"):
-        path = RAW_DIR / name
-        if path.exists():
-            texts += [row["text"] for row in load_jsonl(path)]
+    synthetic = RAW_DIR / "synthetic.jsonl"
+    if synthetic.exists():
+        texts += [row["text"] for row in load_jsonl(synthetic)]
 
     if not texts:
         raise SystemExit(
-            "No corpus found. Run:  python3 ml/fetch_corpus.py --limit 3000"
+            "No synthetic corpus found. Run:  python3 ml/synthesize.py --target 1500"
         )
 
     done = {fingerprint(row["text"]) for row in load_jsonl(GOLD_PATH)}
